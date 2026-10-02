@@ -104,13 +104,13 @@ async function loginFirebase(email, password) {
 // Primer ingreso: la cuenta aún no tiene segundo factor, se enrola una app autenticadora (TOTP).
 async function enrolarTotp(user) {
   const { mod } = fb;
-  mostrarPaso('#paso-enrolar');
   const secreto = await mod.TotpMultiFactorGenerator.generateSecret(await mod.multiFactor(user).getSession());
   const qr = qrcode(0, 'M');
   qr.addData(secreto.generateQrCodeUrl(user.email, 'Portal Incidentes TI3V62'));
   qr.make();
   $('#qr-totp').src = qr.createDataURL(5, 8);
   $('#clave-totp').textContent = secreto.secretKey.replace(/(.{4})/g, '$1 ').trim();
+  mostrarPaso('#paso-enrolar');
   for (;;) {
     const codigo = await pedirCodigo('#form-enrolar');
     try {
@@ -268,7 +268,7 @@ async function cargarAuditoria() {
   try {
     const filas = await api('GET', '/api/auditoria');
     tabla($('#tabla-auditoria'), [
-      ['ts', 'Fecha', fecha], ['evento', 'Evento', (v) => chip(v, /denegado|fallido|bloque|rate/.test(v) ? 'alerta' : 'info')],
+      ['ts', 'Fecha', fecha], ['evento', 'Evento', (v) => chip(v, /denegado|fallido|bloque|rate|sin_mfa/.test(v) ? 'alerta' : 'info')],
       ['email', 'Usuario'], ['rol', 'Rol'], ['ip', 'IP'], ['instancia', 'Instancia'], ['detalle', 'Detalle'],
     ], filas);
   } catch (e) { mensaje(e.message, true); }

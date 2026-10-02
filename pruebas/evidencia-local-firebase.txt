@@ -1,8 +1,8 @@
-Pruebas sobre https://portal-app-production-1269.up.railway.app — 2026-10-02T18:30:40.526Z
+Pruebas sobre http://localhost:8080 — 2026-10-02T18:28:32.739Z
 Modo de autenticación: firebase
 
 1. Disponibilidad básica y cabeceras de seguridad
-  [OK ] GET /health responde — esperado: 200 | obtenido: 200 ({"status":"ok","instancia":"replica-bc8b9853","db":"ok","uptime_s":32})
+  [OK ] GET /health responde — esperado: 200 | obtenido: 200 ({"status":"ok","instancia":"app1","db":"ok","uptime_s":12})
   [OK ] Cabecera content-security-policy — esperado: presente | obtenido: default-src 'self'; script-src 'self' https://www.gstatic.co
   [OK ] Cabecera x-frame-options — esperado: presente | obtenido: DENY
   [OK ] Cabecera x-content-type-options — esperado: presente | obtenido: nosniff
@@ -22,7 +22,7 @@ Modo de autenticación: firebase
   [OK ] Login admin (contraseña + TOTP) — esperado: cookie HttpOnly | obtenido: emitida
   [OK ] Login analista (contraseña + TOTP) — esperado: cookie HttpOnly | obtenido: emitida
   [OK ] Login auditor (contraseña + TOTP) — esperado: cookie HttpOnly | obtenido: emitida
-  [OK ] Atributos de cookie de sesión — esperado: HttpOnly; SameSite=Strict | obtenido: sid=***; HttpOnly; Path=/; SameSite=Strict; Max-Age=1800; Secure
+  [OK ] Atributos de cookie de sesión — esperado: HttpOnly; SameSite=Strict | obtenido: sid=***; HttpOnly; Path=/; SameSite=Strict; Max-Age=1800
 
 3. Control de acceso basado en roles (RBAC)
   [OK ] analista POST /api/incidentes — esperado: 201 | obtenido: 201
@@ -35,8 +35,8 @@ Modo de autenticación: firebase
   [OK ] auditor GET /api/auditoria — esperado: 200 | obtenido: 200
   [OK ] admin GET /api/auditoria — esperado: 200 | obtenido: 200
   [OK ] analista POST /api/usuarios — esperado: 403 | obtenido: 403
-  [OK ] Analista solo ve sus propios incidentes — esperado: true | obtenido: true (2 visibles)
-  [OK ] Auditor ve todos los incidentes (solo lectura) — esperado: >= 2 | obtenido: 4
+  [OK ] Analista solo ve sus propios incidentes — esperado: true | obtenido: true (4 visibles)
+  [OK ] Auditor ve todos los incidentes (solo lectura) — esperado: >= 2 | obtenido: 8
   [OK ] Analista modifica incidente ajeno (IDOR) — esperado: 403 | obtenido: 403
   [OK ] Analista elimina incidente — esperado: 403 | obtenido: 403
 
@@ -59,6 +59,16 @@ Modo de autenticación: firebase
   [OK ] Auditoría registra el factor usado (password+totp) — esperado: presente | obtenido: presente
 
 7. Balanceo de carga entre réplicas
-  [OK ] Peticiones distribuidas en >= 2 instancias — esperado: >= 2 | obtenido: 2 ({"replica-42ed52c3":14,"replica-bc8b9853":26})
+  [OK ] Peticiones distribuidas en >= 2 instancias — esperado: >= 2 | obtenido: 2 ({"app1":20,"app2":20})
 
-Resumen: 44/44 pruebas OK
+8. Failover: caída de una réplica (app1) con tráfico continuo
+  -> app1 detenida (docker stop) a los 3 s
+  [OK ] Servicio sigue respondiendo con 1 réplica caída — esperado: >= 99% | obtenido: 100.00% (142 ok / 0 fallos) ({"app1":14,"app2":128})
+  [OK ] Réplica recuperada vuelve al pool — esperado: 2 instancias | obtenido: app2, app1
+
+9. Segmentación de red
+  [OK ] Contenedor BD sin puertos publicados al host — esperado: ninguno | obtenido: ninguno
+  [OK ] Balanceador (zona pública) NO alcanza la BD — esperado: no | obtenido: no
+  [OK ] BD sin salida a Internet (red internal) — esperado: no | obtenido: no
+
+Resumen: 49/49 pruebas OK
