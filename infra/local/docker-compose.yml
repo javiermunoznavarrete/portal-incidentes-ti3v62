@@ -1,0 +1,60 @@
+# Entorno local equivalente al despliegue en Railway:
+#  - red "publica": solo el balanceador expone puerto al host
+#  - red "privada" (internal: true): app <-> base de datos, sin salida ni entrada externa
+name: portal-incidentes
+x-app: &app
+  build: ../../app
+  environment:
+    DATABASE_URL: postgres://portal:${DB_PASSWORD:-LocalDbPass2026}@db:5432/portal
+    SESSION_SECRET: ${SESSION_SECRET:-local-solo-pruebas-0123456789abcdef0123456789}
+    COOKIE_SECURE: "false"
+    SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-AdminLocal2026}
+    SEED_ANALISTA_PASSWORD: ${SEED_ANALISTA_PASSWORD:-AnalistaLocal2026}
+    SEED_AUDITOR_PASSWORD: ${SEED_AUDITOR_PASSWORD:-AuditorLocal2026}
+  restart: on-failure
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  networks: [publica, privada]
+  depends_on: [db]
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: portal
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-LocalDbPass2026}
+      POSTGRES_DB: portal
+    volumes: [dbdata:/var/lib/postgresql/data]
+    networks: [privada]
+  app1:
+    <<: *app
+    environment:
+      DATABASE_URL: postgres://portal:${DB_PASSWORD:-LocalDbPass2026}@db:5432/portal
+      SESSION_SECRET: ${SESSION_SECRET:-local-solo-pruebas-0123456789abcdef0123456789}
+      COOKIE_SECURE: "false"
+      INSTANCE_NAME: app1
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-AdminLocal2026}
+      SEED_ANALISTA_PASSWORD: ${SEED_ANALISTA_PASSWORD:-AnalistaLocal2026}
+      SEED_AUDITOR_PASSWORD: ${SEED_AUDITOR_PASSWORD:-AuditorLocal2026}
+  app2:
+    <<: *app
+    environment:
+      DATABASE_URL: postgres://portal:${DB_PASSWORD:-LocalDbPass2026}@db:5432/portal
+      SESSION_SECRET: ${SESSION_SECRET:-local-solo-pruebas-0123456789abcdef0123456789}
+      COOKIE_SECURE: "false"
+      INSTANCE_NAME: app2
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-AdminLocal2026}
+      SEED_ANALISTA_PASSWORD: ${SEED_ANALISTA_PASSWORD:-AnalistaLocal2026}
+      SEED_AUDITOR_PASSWORD: ${SEED_AUDITOR_PASSWORD:-AuditorLocal2026}
+  lb:
+    image: nginx:1.27-alpine
+    volumes: ["./nginx.conf:/etc/nginx/nginx.conf:ro"]
+    ports: ["8080:8080"]
+    networks: [publica]
+    depends_on: [app1, app2]
+networks:
+  publica: {}
+  privada:
+    internal: true
+volumes:
+  dbdata: {}

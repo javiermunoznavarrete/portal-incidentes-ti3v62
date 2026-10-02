@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Portal de Incidentes de Seguridad</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="barra">
+    <div class="marca">
+      <span class="escudo" aria-hidden="true">&#9670;</span>
+      <span>Portal de Incidentes</span>
+    </div>
+    <div id="sesion" class="sesion oculto">
+      <span id="usuario-info"></span>
+      <span id="rol-badge" class="badge"></span>
+      <button id="btn-logout" class="btn btn-sec">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="vista-login" class="tarjeta login">
+      <h1>Iniciar sesión</h1>
+      <p class="sub">Acceso restringido a personal autorizado. Toda actividad queda registrada.</p>
+      <form id="form-login" autocomplete="on">
+        <label>Correo<input type="email" name="email" required autocomplete="username"></label>
+        <label>Contraseña<input type="password" name="password" required autocomplete="current-password"></label>
+        <button class="btn" type="submit">Ingresar</button>
+        <p id="login-error" class="error" role="alert"></p>
+      </form>
+    </section>
+
+    <section id="vista-app" class="oculto">
+      <nav class="tabs" id="tabs">
+        <button data-tab="incidentes" class="tab activo">Incidentes</button>
+        <button data-tab="usuarios" class="tab" data-permiso="usuarios:leer">Usuarios</button>
+        <button data-tab="auditoria" class="tab" data-permiso="auditoria:leer">Auditoría</button>
+      </nav>
+
+      <div id="tab-incidentes" class="panel">
+        <form id="form-incidente" class="tarjeta fila" data-permiso="incidentes:crear">
+          <input name="titulo" placeholder="Título del incidente" maxlength="150" required>
+          <select name="severidad" required>
+            <option value="baja">Baja</option>
+            <option value="media" selected>Media</option>
+            <option value="alta">Alta</option>
+            <option value="critica">Crítica</option>
+          </select>
+          <input name="descripcion" placeholder="Descripción (opcional)" maxlength="2000">
+          <button class="btn" type="submit">Registrar</button>
+        </form>
+        <div class="tarjeta"><table id="tabla-incidentes"></table></div>
+      </div>
+
+      <div id="tab-usuarios" class="panel oculto">
+        <form id="form-usuario" class="tarjeta fila" data-permiso="usuarios:gestionar">
+          <input name="nombre" placeholder="Nombre" maxlength="100" required>
+          <input name="email" type="email" placeholder="correo@dominio.cl" required>
+          <select name="rol">
+            <option value="analista">Analista</option>
+            <option value="auditor">Auditor</option>
+            <option value="admin">Admin</option>
+          </select>
+          <input name="password" type="password" placeholder="Contraseña (min. 10, Aa1)" required autocomplete="new-password">
+          <button class="btn" type="submit">Crear usuario</button>
+        </form>
+        <div class="tarjeta"><table id="tabla-usuarios"></table></div>
+      </div>
+
+      <div id="tab-auditoria" class="panel oculto">
+        <div class="tarjeta"><table id="tabla-auditoria"></table></div>
+      </div>
+
+      <p id="mensaje" class="mensaje" role="status"></p>
+    </section>
+  </main>
+
+  <footer class="pie">Atendido por <code id="instancia">—</code> · TI3V62 Gestión de Seguridad de la Información</footer>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+Pruebas sobre http://localhost:8080 — 2026-10-02T16:37:52.973Z
+
+1. Disponibilidad básica y cabeceras de seguridad
+  [OK ] GET /health responde — esperado: 200 | obtenido: 200 ({"status":"ok","instancia":"app1","db":"ok","uptime_s":44})
+  [OK ] Cabecera content-security-policy — esperado: presente | obtenido: default-src 'self'; script-src 'self'; style-src 'self'; img
+  [OK ] Cabecera x-frame-options — esperado: presente | obtenido: DENY
+  [OK ] Cabecera x-content-type-options — esperado: presente | obtenido: nosniff
+  [OK ] Cabecera strict-transport-security — esperado: presente | obtenido: max-age=31536000; includeSubDomains
+  [OK ] Cabecera referrer-policy — esperado: presente | obtenido: no-referrer
+  [OK ] Sin cabecera X-Powered-By (no revela tecnología) — esperado: ausente | obtenido: ausente
+
+2. Autenticación
+  [OK ] Acceso sin sesión a /api/incidentes — esperado: 401 | obtenido: 401
+  [OK ] Login con contraseña incorrecta — esperado: 401 | obtenido: 401 (mensaje genérico: Credenciales inválidas)
+  [OK ] Token de sesión falsificado (rol admin) — esperado: 401 | obtenido: 401
+  [OK ] Login admin — esperado: cookie HttpOnly | obtenido: emitida
+  [OK ] Login analista — esperado: cookie HttpOnly | obtenido: emitida
+  [OK ] Login auditor — esperado: cookie HttpOnly | obtenido: emitida
+  [OK ] Atributos de cookie de sesión — esperado: HttpOnly; SameSite=Strict | obtenido: sid=***; HttpOnly; Path=/; SameSite=Strict; Max-Age=1800
+
+3. Control de acceso basado en roles (RBAC)
+  [OK ] analista POST /api/incidentes — esperado: 201 | obtenido: 201
+  [OK ] admin POST /api/incidentes — esperado: 201 | obtenido: 201
+  [OK ] auditor POST /api/incidentes — esperado: 403 | obtenido: 403
+  [OK ] analista GET /api/usuarios — esperado: 403 | obtenido: 403
+  [OK ] auditor GET /api/usuarios — esperado: 403 | obtenido: 403
+  [OK ] admin GET /api/usuarios — esperado: 200 | obtenido: 200
+  [OK ] analista GET /api/auditoria — esperado: 403 | obtenido: 403
+  [OK ] auditor GET /api/auditoria — esperado: 200 | obtenido: 200
+  [OK ] admin GET /api/auditoria — esperado: 200 | obtenido: 200
+  [OK ] analista POST /api/usuarios — esperado: 403 | obtenido: 403
+  [OK ] Analista solo ve sus propios incidentes — esperado: true | obtenido: true (2 visibles)
+  [OK ] Auditor ve todos los incidentes (solo lectura) — esperado: >= 2 | obtenido: 4
+  [OK ] Analista modifica incidente ajeno (IDOR) — esperado: 403 | obtenido: 403
+  [OK ] Analista elimina incidente — esperado: 403 | obtenido: 403
+
+4. Protección CSRF e inyección
+  [OK ] POST sin cabecera anti-CSRF — esperado: 403 | obtenido: 403
+  [OK ] Inyección SQL en login — esperado: 401 | obtenido: 401
+
+5. Bloqueo por fuerza bruta (cuenta de prueba)
+  [OK ] 5 intentos fallidos -> bloqueo de cuenta — esperado: 423 | obtenido: 423 (intentos: 401,401,401,401,401)
+  [OK ] Política de contraseñas rechaza "123456" — esperado: 400 | obtenido: 400 (La contraseña debe tener al menos 10 caracteres)
+
+6. Logging / auditoría
+  [OK ] Evento "login_exitoso" registrado — esperado: presente | obtenido: presente
+  [OK ] Evento "login_fallido" registrado — esperado: presente | obtenido: presente
+  [OK ] Evento "acceso_denegado" registrado — esperado: presente | obtenido: presente
+  [OK ] Evento "cuenta_bloqueada" registrado — esperado: presente | obtenido: presente
+  [OK ] Evento "incidente_creado" registrado — esperado: presente | obtenido: presente
+
+7. Balanceo de carga entre réplicas
+  [OK ] Peticiones distribuidas en >= 2 instancias — esperado: >= 2 | obtenido: 2 ({"app1":20,"app2":20})
+
+8. Failover: caída de una réplica (app1) con tráfico continuo
+  -> app1 detenida (docker stop) a los 3 s
+  [OK ] Servicio sigue respondiendo con 1 réplica caída — esperado: >= 99% | obtenido: 100.00% (143 ok / 0 fallos) ({"app1":14,"app2":129})
+  [OK ] Réplica recuperada vuelve al pool — esperado: 2 instancias | obtenido: app2, app1
+
+9. Segmentación de red
+  [OK ] Contenedor BD sin puertos publicados al host — esperado: ninguno | obtenido: ninguno
+  [OK ] Balanceador (zona pública) NO alcanza la BD — esperado: no | obtenido: no
+  [OK ] BD sin salida a Internet (red internal) — esperado: no | obtenido: no
+
+Resumen: 43/43 pruebas OK

@@ -1,0 +1,350 @@
+{
+  "base": "http://localhost:8080",
+  "fecha": "2026-10-02T16:38:40.315Z",
+  "resultados": [
+    {
+      "grupo": "disponibilidad",
+      "nombre": "GET /health responde",
+      "esperado": 200,
+      "obtenido": 200,
+      "ok": true,
+      "detalle": "{\"status\":\"ok\",\"instancia\":\"app1\",\"db\":\"ok\",\"uptime_s\":44}"
+    },
+    {
+      "grupo": "hardening",
+      "nombre": "Cabecera content-security-policy",
+      "esperado": "presente",
+      "obtenido": "default-src 'self'; script-src 'self'; style-src 'self'; img",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "hardening",
+      "nombre": "Cabecera x-frame-options",
+      "esperado": "presente",
+      "obtenido": "DENY",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "hardening",
+      "nombre": "Cabecera x-content-type-options",
+      "esperado": "presente",
+      "obtenido": "nosniff",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "hardening",
+      "nombre": "Cabecera strict-transport-security",
+      "esperado": "presente",
+      "obtenido": "max-age=31536000; includeSubDomains",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "hardening",
+      "nombre": "Cabecera referrer-policy",
+      "esperado": "presente",
+      "obtenido": "no-referrer",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "hardening",
+      "nombre": "Sin cabecera X-Powered-By (no revela tecnología)",
+      "esperado": "ausente",
+      "obtenido": "ausente",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "autenticacion",
+      "nombre": "Acceso sin sesión a /api/incidentes",
+      "esperado": 401,
+      "obtenido": 401,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "autenticacion",
+      "nombre": "Login con contraseña incorrecta",
+      "esperado": 401,
+      "obtenido": 401,
+      "ok": true,
+      "detalle": "mensaje genérico: Credenciales inválidas"
+    },
+    {
+      "grupo": "autenticacion",
+      "nombre": "Token de sesión falsificado (rol admin)",
+      "esperado": 401,
+      "obtenido": 401,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "autenticacion",
+      "nombre": "Login admin",
+      "esperado": "cookie HttpOnly",
+      "obtenido": "emitida",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "autenticacion",
+      "nombre": "Login analista",
+      "esperado": "cookie HttpOnly",
+      "obtenido": "emitida",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "autenticacion",
+      "nombre": "Login auditor",
+      "esperado": "cookie HttpOnly",
+      "obtenido": "emitida",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "autenticacion",
+      "nombre": "Atributos de cookie de sesión",
+      "esperado": "HttpOnly; SameSite=Strict",
+      "obtenido": "sid=***; HttpOnly; Path=/; SameSite=Strict; Max-Age=1800",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "rbac",
+      "nombre": "analista POST /api/incidentes",
+      "esperado": 201,
+      "obtenido": 201,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "rbac",
+      "nombre": "admin POST /api/incidentes",
+      "esperado": 201,
+      "obtenido": 201,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "rbac",
+      "nombre": "auditor POST /api/incidentes",
+      "esperado": 403,
+      "obtenido": 403,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "rbac",
+      "nombre": "analista GET /api/usuarios",
+      "esperado": 403,
+      "obtenido": 403,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "rbac",
+      "nombre": "auditor GET /api/usuarios",
+      "esperado": 403,
+      "obtenido": 403,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "rbac",
+      "nombre": "admin GET /api/usuarios",
+      "esperado": 200,
+      "obtenido": 200,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "rbac",
+      "nombre": "analista GET /api/auditoria",
+      "esperado": 403,
+      "obtenido": 403,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "rbac",
+      "nombre": "auditor GET /api/auditoria",
+      "esperado": 200,
+      "obtenido": 200,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "rbac",
+      "nombre": "admin GET /api/auditoria",
+      "esperado": 200,
+      "obtenido": 200,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "rbac",
+      "nombre": "analista POST /api/usuarios",
+      "esperado": 403,
+      "obtenido": 403,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "rbac",
+      "nombre": "Analista solo ve sus propios incidentes",
+      "esperado": "true",
+      "obtenido": "true",
+      "ok": true,
+      "detalle": "2 visibles"
+    },
+    {
+      "grupo": "rbac",
+      "nombre": "Auditor ve todos los incidentes (solo lectura)",
+      "esperado": ">= 2",
+      "obtenido": 4,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "rbac",
+      "nombre": "Analista modifica incidente ajeno (IDOR)",
+      "esperado": 403,
+      "obtenido": 403,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "rbac",
+      "nombre": "Analista elimina incidente",
+      "esperado": 403,
+      "obtenido": 403,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "csrf",
+      "nombre": "POST sin cabecera anti-CSRF",
+      "esperado": 403,
+      "obtenido": 403,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "inyeccion",
+      "nombre": "Inyección SQL en login",
+      "esperado": 401,
+      "obtenido": 401,
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "autenticacion",
+      "nombre": "5 intentos fallidos -> bloqueo de cuenta",
+      "esperado": 423,
+      "obtenido": 423,
+      "ok": true,
+      "detalle": "intentos: 401,401,401,401,401"
+    },
+    {
+      "grupo": "autenticacion",
+      "nombre": "Política de contraseñas rechaza \"123456\"",
+      "esperado": 400,
+      "obtenido": 400,
+      "ok": true,
+      "detalle": "La contraseña debe tener al menos 10 caracteres"
+    },
+    {
+      "grupo": "logging",
+      "nombre": "Evento \"login_exitoso\" registrado",
+      "esperado": "presente",
+      "obtenido": "presente",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "logging",
+      "nombre": "Evento \"login_fallido\" registrado",
+      "esperado": "presente",
+      "obtenido": "presente",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "logging",
+      "nombre": "Evento \"acceso_denegado\" registrado",
+      "esperado": "presente",
+      "obtenido": "presente",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "logging",
+      "nombre": "Evento \"cuenta_bloqueada\" registrado",
+      "esperado": "presente",
+      "obtenido": "presente",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "logging",
+      "nombre": "Evento \"incidente_creado\" registrado",
+      "esperado": "presente",
+      "obtenido": "presente",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "disponibilidad",
+      "nombre": "Peticiones distribuidas en >= 2 instancias",
+      "esperado": ">= 2",
+      "obtenido": 2,
+      "ok": true,
+      "detalle": "{\"app1\":20,\"app2\":20}"
+    },
+    {
+      "grupo": "disponibilidad",
+      "nombre": "Servicio sigue respondiendo con 1 réplica caída",
+      "esperado": ">= 99%",
+      "obtenido": "100.00% (143 ok / 0 fallos)",
+      "ok": true,
+      "detalle": "{\"app1\":14,\"app2\":129}"
+    },
+    {
+      "grupo": "disponibilidad",
+      "nombre": "Réplica recuperada vuelve al pool",
+      "esperado": "2 instancias",
+      "obtenido": "app2, app1",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "red",
+      "nombre": "Contenedor BD sin puertos publicados al host",
+      "esperado": "ninguno",
+      "obtenido": "ninguno",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "red",
+      "nombre": "Balanceador (zona pública) NO alcanza la BD",
+      "esperado": "no",
+      "obtenido": "no",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "red",
+      "nombre": "BD sin salida a Internet (red internal)",
+      "esperado": "no",
+      "obtenido": "no",
+      "ok": true,
+      "detalle": ""
+    }
+  ]
+}
