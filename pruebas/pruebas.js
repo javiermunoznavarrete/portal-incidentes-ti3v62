@@ -2,8 +2,10 @@
 // Batería de pruebas de seguridad y disponibilidad. Genera evidencia en JSON + texto.
 // Uso: node pruebas.js <BASE_URL> <salida> [--local]
 //   Credenciales vía variables: ADMIN_PASS, ANALISTA_PASS, AUDITOR_PASS
+//   Modo Firebase (2FA): además ADMIN_TOTP, ANALISTA_TOTP, AUDITOR_TOTP (secretos base32)
 const { execSync } = require('node:child_process');
 const fs = require('node:fs');
+const { totp, msHastaProximoPeriodo } = require('./totp');
 
 const BASE = (process.argv[2] || 'http://localhost:8080').replace(/\/$/, '');
 const SALIDA = process.argv[3] || 'evidencia';
@@ -13,6 +15,10 @@ const CRED = {
   analista: ['analista@portal.cl', process.env.ANALISTA_PASS || 'AnalistaLocal2026'],
   auditor: ['auditor@portal.cl', process.env.AUDITOR_PASS || 'AuditorLocal2026'],
 };
+
+const TOTP = { admin: process.env.ADMIN_TOTP, analista: process.env.ANALISTA_TOTP, auditor: process.env.AUDITOR_TOTP };
+let CONFIG = { modo: 'local' };
+const FIREBASE = () => CONFIG.modo === 'firebase';
 
 const resultados = [];
 const lineas = [];
@@ -34,15 +40,42 @@ async function req(metodo, ruta, { cookie, body, csrf = true } = {}) {
   return { status: r.status, json, headers: r.headers, cookie: set ? set.split(';')[0] : null };
 }
 
+// API REST de Firebase Authentication (lo mismo que hace el SDK web en el navegador).
+async function fb(ruta, cuerpo) {
+  const r = await fetch(`https://identitytoolkit.googleapis.com/${ruta}?key=${CONFIG.firebase.apiKey}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo),
+  });
+  const j = await r.json().catch(() => ({}));
+  return { status: r.status, j, error: j.error && j.error.message };
+}
+
+// Contraseña + TOTP -> ID token con segundo factor. Reintenta en el siguiente periodo si el código ya fue usado.
+async function idTokenConMfa(email, password, secreto) {
+  for (let intento = 0; intento < 2; intento++) {
+    const a = await fb('v1/accounts:signInWithPassword', { email, password, returnSecureToken: true });
+    if (!a.j.mfaPendingCredential) throw new Error(`se esperaba desafío MFA para ${email}: ${a.error || 'sin desafío'}`);
+    const f = await fb('v2/accounts/mfaSignIn:finalize', {
+      mfaPendingCredential: a.j.mfaPendingCredential, mfaEnrollmentId: a.j.mfaInfo[0].mfaEnrollmentId,
+      totpVerificationInfo: { verificationCode: totp(secreto) },
+    });
+    if (f.j.idToken) return f.j.idToken;
+    await sleep(msHastaProximoPeriodo() + 1000);
+  }
+  throw new Error(`no se pudo completar MFA para ${email}`);
+}
+
 async function login(rol) {
   const [email, password] = CRED[rol];
-  const r = await req('POST', '/api/login', { body: { email, password } });
+  const body = FIREBASE() ? { idToken: await idTokenConMfa(email, password, TOTP[rol]) } : { email, password };
+  const r = await req('POST', '/api/login', { body });
   if (r.status !== 200) throw new Error(`login ${rol} falló: ${r.status}`);
-  return r.cookie;
+  return r;
 }
 
 async function main() {
   out(`Pruebas sobre ${BASE} — ${new Date().toISOString()}`);
+  CONFIG = (await req('GET', '/api/config')).json || CONFIG;
+  out(`Modo de autenticación: ${CONFIG.modo}`);
 
   out('\n1. Disponibilidad básica y cabeceras de seguridad');
   const h = await req('GET', '/health', { csrf: false });
@@ -58,17 +91,33 @@ async function main() {
   out('\n2. Autenticación');
   const sin = await req('GET', '/api/incidentes');
   registrar('autenticacion', 'Acceso sin sesión a /api/incidentes', 401, sin.status, sin.status === 401);
-  const mala = await req('POST', '/api/login', { body: { email: 'analista@portal.cl', password: 'incorrecta' } });
-  registrar('autenticacion', 'Login con contraseña incorrecta', 401, mala.status, mala.status === 401, 'mensaje genérico: ' + (mala.json && mala.json.error));
+  if (FIREBASE()) {
+    const mala = await fb('v1/accounts:signInWithPassword', { email: 'analista@portal.cl', password: 'Incorrecta123', returnSecureToken: true });
+    registrar('autenticacion', 'Login con contraseña incorrecta (Firebase)', 'rechazado', `${mala.status} ${mala.error}`, !mala.j.idToken && !mala.j.mfaPendingCredential);
+
+    out('\n2b. Autenticación multifactor (Firebase + TOTP)');
+    const soloPass = await fb('v1/accounts:signInWithPassword', { email: CRED.analista[0], password: CRED.analista[1], returnSecureToken: true });
+    registrar('mfa', 'Contraseña correcta sin TOTP no entrega token', 'desafío MFA', soloPass.j.idToken ? 'token entregado' : (soloPass.j.mfaPendingCredential ? 'desafío MFA' : soloPass.error),
+      !soloPass.j.idToken && Boolean(soloPass.j.mfaPendingCredential), `factores: ${(soloPass.j.mfaInfo || []).map((m) => (m.totpInfo ? 'totp' : 'otro')).join(',')}`);
+    const malo = await fb('v2/accounts/mfaSignIn:finalize', { mfaPendingCredential: soloPass.j.mfaPendingCredential, mfaEnrollmentId: soloPass.j.mfaInfo[0].mfaEnrollmentId, totpVerificationInfo: { verificationCode: '000000' } });
+    registrar('mfa', 'Código TOTP incorrecto rechazado', 'rechazado', `${malo.status} ${malo.error}`, !malo.j.idToken);
+    const tokFalso = await req('POST', '/api/login', { body: { idToken: 'eyJhbGciOiJSUzI1NiJ9.eyJlbWFpbCI6ImFkbWluQHBvcnRhbC5jbCJ9.firma' } });
+    registrar('mfa', 'ID token falsificado rechazado por el servidor', 401, tokFalso.status, tokFalso.status === 401);
+  } else {
+    const mala = await req('POST', '/api/login', { body: { email: 'analista@portal.cl', password: 'incorrecta' } });
+    registrar('autenticacion', 'Login con contraseña incorrecta', 401, mala.status, mala.status === 401, 'mensaje genérico: ' + (mala.json && mala.json.error));
+  }
   const falsa = await req('GET', '/api/usuarios', { cookie: 'sid=eyJ1aWQiOjEsInJvbCI6ImFkbWluIiwiZXhwIjo5OTk5OTk5OTk5OTk5fQ.firmafalsa' });
   registrar('autenticacion', 'Token de sesión falsificado (rol admin)', 401, falsa.status, falsa.status === 401);
 
   const cookies = {};
+  let rawCookie = '';
   for (const rol of Object.keys(CRED)) {
-    cookies[rol] = await login(rol);
-    registrar('autenticacion', `Login ${rol}`, 'cookie HttpOnly', cookies[rol] ? 'emitida' : 'no', Boolean(cookies[rol]));
+    const r = await login(rol);
+    cookies[rol] = r.cookie;
+    if (rol === 'auditor') rawCookie = r.headers.get('set-cookie') || '';
+    registrar('autenticacion', `Login ${rol}${FIREBASE() ? ' (contraseña + TOTP)' : ''}`, 'cookie HttpOnly', cookies[rol] ? 'emitida' : 'no', Boolean(cookies[rol]));
   }
-  const rawCookie = (await req('POST', '/api/login', { body: { email: CRED.auditor[0], password: CRED.auditor[1] } })).headers.get('set-cookie') || '';
   registrar('autenticacion', 'Atributos de cookie de sesión', 'HttpOnly; SameSite=Strict', rawCookie.replace(/sid=[^;]+/, 'sid=***'),
     /HttpOnly/i.test(rawCookie) && /SameSite=Strict/i.test(rawCookie));
 
@@ -107,21 +156,44 @@ async function main() {
   const sqli = await req('POST', '/api/login', { body: { email: "' OR '1'='1' --", password: "' OR '1'='1" } });
   registrar('inyeccion', 'Inyección SQL en login', 401, sqli.status, sqli.status === 401);
 
-  out('\n5. Bloqueo por fuerza bruta (cuenta de prueba)');
-  const pruebaEmail = `bloqueo${Date.now()}@portal.cl`;
-  await req('POST', '/api/usuarios', { cookie: cookies.admin, body: { email: pruebaEmail, nombre: 'Cuenta Bloqueo', rol: 'analista', password: 'Bloqueo12345' } });
-  const estados = [];
-  for (let i = 0; i < 5; i++) estados.push((await req('POST', '/api/login', { body: { email: pruebaEmail, password: 'Mala' + i } })).status);
-  const tras = await req('POST', '/api/login', { body: { email: pruebaEmail, password: 'Bloqueo12345' } });
-  registrar('autenticacion', '5 intentos fallidos -> bloqueo de cuenta', 423, tras.status, tras.status === 423, `intentos: ${estados.join(',')}`);
+  if (FIREBASE()) {
+    out('\n5. Cuenta nueva sin 2FA y revocación (cuenta de prueba)');
+    const email = `prueba${Date.now()}@portal.cl`;
+    const alta = await req('POST', '/api/usuarios', { cookie: cookies.admin, body: { email, nombre: 'Cuenta Prueba', rol: 'analista', password: 'Prueba123456' } });
+    registrar('mfa', 'Admin crea usuario (sincronizado con Firebase)', 201, alta.status, alta.status === 201);
+    const a = await fb('v1/accounts:signInWithPassword', { email, password: 'Prueba123456', returnSecureToken: true });
+    const sinMfa = await req('POST', '/api/login', { body: { idToken: a.j.idToken || '' } });
+    registrar('mfa', 'Login sin segundo factor enrolado es rechazado', '401 mfa_requerido', `${sinMfa.status} ${sinMfa.json && sinMfa.json.codigo}`,
+      sinMfa.status === 401 && sinMfa.json && sinMfa.json.codigo === 'mfa_requerido');
+    const lista = await req('GET', '/api/usuarios', { cookie: cookies.admin });
+    const nuevo = lista.json.find((u) => u.email === email);
+    await req('PATCH', `/api/usuarios/${nuevo.id}`, { cookie: cookies.admin, body: { activo: false } });
+    const desact = await fb('v1/accounts:signInWithPassword', { email, password: 'Prueba123456', returnSecureToken: true });
+    registrar('mfa', 'Usuario desactivado no puede autenticarse en Firebase', 'USER_DISABLED', desact.error || 'token entregado', desact.error === 'USER_DISABLED');
+  } else {
+    out('\n5. Bloqueo por fuerza bruta (cuenta de prueba)');
+    const pruebaEmail = `bloqueo${Date.now()}@portal.cl`;
+    await req('POST', '/api/usuarios', { cookie: cookies.admin, body: { email: pruebaEmail, nombre: 'Cuenta Bloqueo', rol: 'analista', password: 'Bloqueo12345' } });
+    const estados = [];
+    for (let i = 0; i < 5; i++) estados.push((await req('POST', '/api/login', { body: { email: pruebaEmail, password: 'Mala' + i } })).status);
+    const tras = await req('POST', '/api/login', { body: { email: pruebaEmail, password: 'Bloqueo12345' } });
+    registrar('autenticacion', '5 intentos fallidos -> bloqueo de cuenta', 423, tras.status, tras.status === 423, `intentos: ${estados.join(',')}`);
+  }
   const pol = await req('POST', '/api/usuarios', { cookie: cookies.admin, body: { email: `debil${Date.now()}@portal.cl`, nombre: 'Débil', rol: 'analista', password: '123456' } });
   registrar('autenticacion', 'Política de contraseñas rechaza "123456"', 400, pol.status, pol.status === 400, pol.json && pol.json.error);
 
   out('\n6. Logging / auditoría');
   const aud = await req('GET', '/api/auditoria', { cookie: cookies.auditor });
   const eventos = new Set(aud.json.map((e) => e.evento));
-  for (const ev of ['login_exitoso', 'login_fallido', 'acceso_denegado', 'cuenta_bloqueada', 'incidente_creado']) {
+  const esperados = FIREBASE()
+    ? ['login_exitoso', 'login_fallido', 'acceso_denegado', 'login_sin_mfa', 'incidente_creado']
+    : ['login_exitoso', 'login_fallido', 'acceso_denegado', 'cuenta_bloqueada', 'incidente_creado'];
+  for (const ev of esperados) {
     registrar('logging', `Evento "${ev}" registrado`, 'presente', eventos.has(ev) ? 'presente' : 'ausente', eventos.has(ev));
+  }
+  if (FIREBASE()) {
+    const conMfa = aud.json.some((e) => e.evento === 'login_exitoso' && /password\+totp/.test(e.detalle || ''));
+    registrar('logging', 'Auditoría registra el factor usado (password+totp)', 'presente', conMfa ? 'presente' : 'ausente', conMfa);
   }
 
   out('\n7. Balanceo de carga entre réplicas');

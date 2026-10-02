@@ -9,6 +9,7 @@ const crypto = require('node:crypto');
 const { crearPool, inicializar } = require('./db');
 const { ROLES, PERMISOS, tienePermiso } = require('./rbac');
 const seg = require('./seguridad');
+const firebase = require('./firebase');
 
 // ---------------------------------------------------------------- configuración
 const PORT = Number(process.env.PORT || 3000);
@@ -26,6 +27,9 @@ if (!DATABASE_URL) { console.error('DATABASE_URL no definida'); process.exit(1);
 if (SESSION_SECRET.length < 32) { console.error('SESSION_SECRET debe tener al menos 32 caracteres'); process.exit(1); }
 
 const pool = crearPool(DATABASE_URL);
+// Modo de autenticación: 'firebase' (contraseña + TOTP vía Firebase Identity Platform) o 'local' (solo contraseña).
+const FB = firebase.iniciar();
+const MODO_AUTH = FB ? 'firebase' : 'local';
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 // ---------------------------------------------------------------- logging estructurado (JSON por línea)
@@ -49,7 +53,10 @@ async function auditar(evento, req, detalle = '') {
 
 // ---------------------------------------------------------------- utilidades HTTP
 const CABECERAS_SEGURIDAD = {
-  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+  // En modo Firebase se permite solo el SDK oficial (gstatic) y las APIs de autenticación de Google.
+  'Content-Security-Policy': FB
+    ? "default-src 'self'; script-src 'self' https://www.gstatic.com; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; style-src 'self'; img-src 'self' data:; frame-src https://" + (FB.web.authDomain || 'firebaseapp.com') + "; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+    : "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'no-referrer',
@@ -160,6 +167,7 @@ async function login(req, res) {
     return enviar(res, 429, { error: 'Demasiados intentos. Espere un minuto.' });
   }
   const body = await leerJson(req);
+  if (MODO_AUTH === 'firebase') return loginFirebase(req, res, body);
   const email = texto(body.email, 200).toLowerCase();
   const password = typeof body.password === 'string' ? body.password.slice(0, 128) : '';
   const { rows } = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
@@ -185,11 +193,49 @@ async function login(req, res) {
     return enviar(res, 401, generico);
   }
   await pool.query('UPDATE usuarios SET intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id = $1', [u.id]);
+  await abrirSesion(req, res, u, 'factor=password');
+}
+
+async function abrirSesion(req, res, u, detalle) {
   const exp = Date.now() + SESSION_MIN * 60_000;
   const token = seg.firmarToken({ uid: u.id, email: u.email, rol: u.rol, nombre: u.nombre, exp, jti: crypto.randomUUID() }, SESSION_SECRET);
   req.usuario = { id: u.id, email: u.email, rol: u.rol };
-  await auditar('login_exitoso', req);
+  await auditar('login_exitoso', req, detalle);
   enviar(res, 200, { email: u.email, nombre: u.nombre, rol: u.rol }, { 'Set-Cookie': cookieSesion(token, SESSION_MIN * 60) });
+}
+
+// Login con Firebase: el navegador ya validó contraseña y TOTP contra Firebase y envía el ID token.
+// Se exige el claim sign_in_second_factor (NIST SP 800-63B AAL2 / ISO 27001 A.8.5).
+async function loginFirebase(req, res, body) {
+  const idToken = typeof body.idToken === 'string' ? body.idToken : '';
+  let t;
+  try {
+    t = await firebase.verificarIdToken(idToken);
+  } catch (e) {
+    await auditar('login_fallido', req, `token Firebase inválido: ${e.codigo || e.code || e.message}`.slice(0, 200));
+    return enviar(res, 401, { error: 'Credenciales inválidas' });
+  }
+  const { rows } = await pool.query('SELECT * FROM usuarios WHERE email = $1', [t.email]);
+  const u = rows[0];
+  if (!u || !u.activo) {
+    await auditar('login_fallido', req, `email=${t.email} (sin cuenta en el portal o inactiva)`);
+    return enviar(res, 401, { error: 'Credenciales inválidas' });
+  }
+  if (u.firebase_uid && u.firebase_uid !== t.uid) {
+    await auditar('login_fallido', req, `email=${t.email} uid de Firebase no coincide`);
+    return enviar(res, 401, { error: 'Credenciales inválidas' });
+  }
+  if (!u.firebase_uid) await pool.query('UPDATE usuarios SET firebase_uid = $2 WHERE id = $1', [u.id, t.uid]);
+  if (t.segundoFactor !== 'totp') {
+    req.usuario = { id: u.id, email: u.email, rol: u.rol };
+    await auditar('login_sin_mfa', req, 'autenticado solo con contraseña: se exige enrolar/usar TOTP');
+    return enviar(res, 401, { error: 'Debe usar autenticación de doble factor', codigo: 'mfa_requerido' });
+  }
+  await abrirSesion(req, res, u, 'factor=password+totp');
+}
+
+function config(req, res) {
+  enviar(res, 200, { modo: MODO_AUTH, firebase: FB ? FB.web : null });
 }
 
 async function logout(req, res) {
@@ -199,7 +245,7 @@ async function logout(req, res) {
 
 async function me(req, res) {
   if (!(await exigir(req, res))) return;
-  enviar(res, 200, { ...req.usuario, permisos: PERMISOS[req.usuario.rol], instancia: INSTANCIA });
+  enviar(res, 200, { ...req.usuario, permisos: PERMISOS[req.usuario.rol], instancia: INSTANCIA, modo: MODO_AUTH });
 }
 
 const SEVERIDADES = ['baja', 'media', 'alta', 'critica'];
@@ -267,7 +313,7 @@ async function eliminarIncidente(req, res, id) {
 async function listarUsuarios(req, res) {
   if (!(await exigir(req, res, 'usuarios:leer'))) return;
   const { rows } = await pool.query(
-    'SELECT id, email, nombre, rol, activo, intentos_fallidos, bloqueado_hasta, creado_en FROM usuarios ORDER BY id',
+    'SELECT id, email, nombre, rol, activo, intentos_fallidos, bloqueado_hasta, creado_en, (firebase_uid IS NOT NULL) AS vinculado_firebase FROM usuarios ORDER BY id',
   );
   enviar(res, 200, rows);
 }
@@ -283,10 +329,21 @@ async function crearUsuario(req, res) {
   }
   const errPass = seg.validarPoliticaPassword(b.password);
   if (errPass) return enviar(res, 400, { error: errPass });
+  const existe = await pool.query('SELECT 1 FROM usuarios WHERE email = $1', [email]);
+  if (existe.rowCount) return enviar(res, 409, { error: 'El email ya existe' });
+  let uid = null;
+  if (MODO_AUTH === 'firebase') {
+    // La contraseña se almacena solo en Firebase; el portal guarda la identidad y el rol.
+    try { uid = await firebase.crearUsuario({ email, password: b.password, nombre }); }
+    catch (e) {
+      if (e.code === 'auth/email-already-exists') uid = await firebase.buscarUid(email);
+      else return enviar(res, 400, { error: 'Firebase rechazó la cuenta: ' + String(e.message || e.code).slice(0, 150) });
+    }
+  }
   try {
     const { rows } = await pool.query(
-      'INSERT INTO usuarios (email, nombre, rol, password_hash) VALUES ($1,$2,$3,$4) RETURNING id',
-      [email, nombre, rol, seg.hashPassword(b.password)],
+      'INSERT INTO usuarios (email, nombre, rol, password_hash, firebase_uid) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+      [email, nombre, rol, uid ? 'externo:firebase' : seg.hashPassword(b.password), uid],
     );
     await auditar('usuario_creado', req, `id=${rows[0].id} email=${email} rol=${rol}`);
     enviar(res, 201, { id: rows[0].id });
@@ -308,10 +365,20 @@ async function actualizarUsuario(req, res, id) {
     vals.push(b.rol); sets.push(`rol = $${vals.length}`);
   }
   if (b.desbloquear === true) sets.push('intentos_fallidos = 0, bloqueado_hasta = NULL');
-  if (!sets.length) return enviar(res, 400, { error: 'Nada que actualizar' });
-  const r = await pool.query(`UPDATE usuarios SET ${sets.join(', ')} WHERE id = $1`, vals);
-  if (!r.rowCount) return enviar(res, 404, { error: 'No encontrado' });
-  await auditar('usuario_actualizado', req, `id=${id} cambios=${JSON.stringify({ activo: b.activo, rol: b.rol, desbloquear: b.desbloquear })}`);
+  const restablecerMfa = b.restablecer_mfa === true;
+  if (!sets.length && !restablecerMfa) return enviar(res, 400, { error: 'Nada que actualizar' });
+  const actual = await pool.query('SELECT firebase_uid FROM usuarios WHERE id = $1', [id]);
+  if (!actual.rowCount) return enviar(res, 404, { error: 'No encontrado' });
+  const uid = actual.rows[0].firebase_uid;
+  if (MODO_AUTH === 'firebase' && uid) {
+    if (typeof b.activo === 'boolean') await firebase.establecerActivo(uid, b.activo);
+    if (restablecerMfa) await firebase.restablecerMfa(uid);
+  } else if (restablecerMfa) {
+    return enviar(res, 400, { error: 'El usuario no está vinculado a Firebase' });
+  }
+  if (sets.length) await pool.query(`UPDATE usuarios SET ${sets.join(', ')} WHERE id = $1`, vals);
+  await auditar(restablecerMfa ? 'mfa_restablecido' : 'usuario_actualizado', req,
+    `id=${id} cambios=${JSON.stringify({ activo: b.activo, rol: b.rol, desbloquear: b.desbloquear, restablecer_mfa: restablecerMfa || undefined })}`);
   enviar(res, 200, { ok: true });
 }
 
@@ -354,6 +421,7 @@ const RUTAS = [
   ['POST', /^\/api\/login$/, login],
   ['POST', /^\/api\/logout$/, logout],
   ['GET', /^\/api\/me$/, me],
+  ['GET', /^\/api\/config$/, config],
   ['GET', /^\/api\/incidentes$/, listarIncidentes],
   ['POST', /^\/api\/incidentes$/, crearIncidente],
   ['PATCH', /^\/api\/incidentes\/(\d+)$/, actualizarIncidente],
@@ -403,9 +471,9 @@ async function arrancar() {
   for (let intento = 1; ; intento++) {
     try {
       await inicializar(pool, [
-        { email: 'admin@portal.cl', nombre: 'Administradora', rol: 'admin', password: process.env.SEED_ADMIN_PASSWORD },
-        { email: 'analista@portal.cl', nombre: 'Analista SOC', rol: 'analista', password: process.env.SEED_ANALISTA_PASSWORD },
-        { email: 'auditor@portal.cl', nombre: 'Auditor Interno', rol: 'auditor', password: process.env.SEED_AUDITOR_PASSWORD },
+        { email: 'admin@portal.cl', nombre: 'Administradora', rol: 'admin', password: process.env.SEED_ADMIN_PASSWORD, externo: Boolean(FB) },
+        { email: 'analista@portal.cl', nombre: 'Analista SOC', rol: 'analista', password: process.env.SEED_ANALISTA_PASSWORD, externo: Boolean(FB) },
+        { email: 'auditor@portal.cl', nombre: 'Auditor Interno', rol: 'auditor', password: process.env.SEED_AUDITOR_PASSWORD, externo: Boolean(FB) },
       ]);
       break;
     } catch (e) {
@@ -414,7 +482,7 @@ async function arrancar() {
       await new Promise((r) => setTimeout(r, 2000 * intento));
     }
   }
-  servidor.listen(PORT, () => log('info', 'servidor_iniciado', { puerto: PORT }));
+  servidor.listen(PORT, () => log('info', 'servidor_iniciado', { puerto: PORT, modo_auth: MODO_AUTH }));
 }
 
 function apagar(senal) {
