@@ -1,0 +1,19 @@
+{
+  "base": "https://portal-app-production-1269.up.railway.app",
+  "duracion_s": 150,
+  "ok": 207,
+  "fallo": 0,
+  "disponibilidad_pct": 100,
+  "por_instancia": {
+    "replica-2b129c00": 17,
+    "replica-bf671a97": 10,
+    "replica-481fc08d": 90,
+    "replica-748865aa": 90
+  },
+  "eventos": [
+    "0.8s instancias vistas: replica-2b129c00",
+    "1.5s instancias vistas: replica-2b129c00,replica-bf671a97",
+    "21.7s instancias vistas: replica-2b129c00,replica-481fc08d,replica-bf671a97",
+    "23.1s instancias vistas: replica-2b129c00,replica-481fc08d,replica-748865aa,replica-bf671a97"
+  ]
+}

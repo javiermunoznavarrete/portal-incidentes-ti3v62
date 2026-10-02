@@ -45,6 +45,7 @@ function tabla(el, columnas, filas, acciones) {
     const tr = tb.insertRow();
     for (const [clave, , fmt] of columnas) {
       const td = tr.insertCell();
+      if (fmt === fecha) td.className = 'fecha';
       const v = fmt ? fmt(f[clave], f) : f[clave];
       if (v instanceof Node) td.appendChild(v); else td.textContent = v == null ? '' : String(v);
     }
@@ -128,7 +129,10 @@ async function cargarUsuarios() {
     const gestiona = puede('usuarios:gestionar');
     tabla($('#tabla-usuarios'), [
       ['id', '#'], ['nombre', 'Nombre'], ['email', 'Correo'], ['rol', 'Rol', (v) => chip(v, `rol-${v}`)],
-      ['activo', 'Estado', (v, f) => chip(f.bloqueado_hasta && new Date(f.bloqueado_hasta) > new Date() ? 'bloqueado' : (v ? 'activo' : 'inactivo'), v ? 'ok' : 'off')],
+      ['activo', 'Estado', (v, f) => {
+        if (f.bloqueado_hasta && new Date(f.bloqueado_hasta) > new Date()) return chip('bloqueado', 'alerta');
+        return chip(v ? 'activo' : 'inactivo', v ? 'ok' : 'off');
+      }],
       ['creado_en', 'Creado', fecha],
     ], filas, gestiona ? (f) => {
       const cont = document.createElement('div');
