@@ -1,6 +1,6 @@
 {
   "base": "http://localhost:8080",
-  "fecha": "2026-10-02T16:38:40.315Z",
+  "fecha": "2026-10-02T18:26:21.553Z",
   "resultados": [
     {
       "grupo": "disponibilidad",
@@ -8,7 +8,7 @@
       "esperado": 200,
       "obtenido": 200,
       "ok": true,
-      "detalle": "{\"status\":\"ok\",\"instancia\":\"app1\",\"db\":\"ok\",\"uptime_s\":44}"
+      "detalle": "{\"status\":\"ok\",\"instancia\":\"app1\",\"db\":\"ok\",\"uptime_s\":6}"
     },
     {
       "grupo": "hardening",
@@ -200,13 +200,13 @@
       "esperado": "true",
       "obtenido": "true",
       "ok": true,
-      "detalle": "2 visibles"
+      "detalle": "3 visibles"
     },
     {
       "grupo": "rbac",
       "nombre": "Auditor ve todos los incidentes (solo lectura)",
       "esperado": ">= 2",
-      "obtenido": 4,
+      "obtenido": 6,
       "ok": true,
       "detalle": ""
     },
@@ -304,7 +304,7 @@
       "esperado": ">= 2",
       "obtenido": 2,
       "ok": true,
-      "detalle": "{\"app1\":20,\"app2\":20}"
+      "detalle": "{\"app2\":20,\"app1\":20}"
     },
     {
       "grupo": "disponibilidad",
@@ -312,7 +312,7 @@
       "esperado": ">= 99%",
       "obtenido": "100.00% (143 ok / 0 fallos)",
       "ok": true,
-      "detalle": "{\"app1\":14,\"app2\":129}"
+      "detalle": "{\"app2\":129,\"app1\":14}"
     },
     {
       "grupo": "disponibilidad",
