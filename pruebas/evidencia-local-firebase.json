@@ -1,6 +1,6 @@
 {
-  "base": "https://portal-app-production-1269.up.railway.app",
-  "fecha": "2026-10-02T18:31:18.492Z",
+  "base": "http://localhost:8080",
+  "fecha": "2026-10-02T18:29:25.966Z",
   "resultados": [
     {
       "grupo": "disponibilidad",
@@ -8,7 +8,7 @@
       "esperado": 200,
       "obtenido": 200,
       "ok": true,
-      "detalle": "{\"status\":\"ok\",\"instancia\":\"replica-bc8b9853\",\"db\":\"ok\",\"uptime_s\":32}"
+      "detalle": "{\"status\":\"ok\",\"instancia\":\"app1\",\"db\":\"ok\",\"uptime_s\":12}"
     },
     {
       "grupo": "hardening",
@@ -134,7 +134,7 @@
       "grupo": "autenticacion",
       "nombre": "Atributos de cookie de sesión",
       "esperado": "HttpOnly; SameSite=Strict",
-      "obtenido": "sid=***; HttpOnly; Path=/; SameSite=Strict; Max-Age=1800; Secure",
+      "obtenido": "sid=***; HttpOnly; Path=/; SameSite=Strict; Max-Age=1800",
       "ok": true,
       "detalle": ""
     },
@@ -224,13 +224,13 @@
       "esperado": "true",
       "obtenido": "true",
       "ok": true,
-      "detalle": "2 visibles"
+      "detalle": "4 visibles"
     },
     {
       "grupo": "rbac",
       "nombre": "Auditor ve todos los incidentes (solo lectura)",
       "esperado": ">= 2",
-      "obtenido": 4,
+      "obtenido": 8,
       "ok": true,
       "detalle": ""
     },
@@ -352,7 +352,47 @@
       "esperado": ">= 2",
       "obtenido": 2,
       "ok": true,
-      "detalle": "{\"replica-42ed52c3\":14,\"replica-bc8b9853\":26}"
+      "detalle": "{\"app1\":20,\"app2\":20}"
+    },
+    {
+      "grupo": "disponibilidad",
+      "nombre": "Servicio sigue respondiendo con 1 réplica caída",
+      "esperado": ">= 99%",
+      "obtenido": "100.00% (142 ok / 0 fallos)",
+      "ok": true,
+      "detalle": "{\"app1\":14,\"app2\":128}"
+    },
+    {
+      "grupo": "disponibilidad",
+      "nombre": "Réplica recuperada vuelve al pool",
+      "esperado": "2 instancias",
+      "obtenido": "app2, app1",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "red",
+      "nombre": "Contenedor BD sin puertos publicados al host",
+      "esperado": "ninguno",
+      "obtenido": "ninguno",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "red",
+      "nombre": "Balanceador (zona pública) NO alcanza la BD",
+      "esperado": "no",
+      "obtenido": "no",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "grupo": "red",
+      "nombre": "BD sin salida a Internet (red internal)",
+      "esperado": "no",
+      "obtenido": "no",
+      "ok": true,
+      "detalle": ""
     }
   ]
 }

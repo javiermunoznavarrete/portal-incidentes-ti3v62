@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS auditoria (
   instancia TEXT
 );
 CREATE INDEX IF NOT EXISTS auditoria_ts_idx ON auditoria (ts DESC);
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS firebase_uid TEXT UNIQUE;
 `;
 
 function crearPool(databaseUrl) {
@@ -57,10 +58,11 @@ async function inicializar(pool, semillas) {
     const { rows } = await client.query('SELECT count(*)::int AS n FROM usuarios');
     if (rows[0].n === 0) {
       for (const s of semillas) {
-        if (!s.password) continue;
+        // En modo Firebase la contraseña vive solo en Firebase; el portal guarda identidad y rol.
+        if (!s.password && !s.externo) continue;
         await client.query(
           'INSERT INTO usuarios (email, nombre, rol, password_hash) VALUES ($1,$2,$3,$4)',
-          [s.email, s.nombre, s.rol, hashPassword(s.password)],
+          [s.email, s.nombre, s.rol, s.externo ? 'externo:firebase' : hashPassword(s.password)],
         );
       }
     }

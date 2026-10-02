@@ -1,7 +1,8 @@
-Pruebas sobre http://localhost:8080 — 2026-10-02T16:37:52.973Z
+Pruebas sobre http://localhost:8080 — 2026-10-02T18:25:34.382Z
+Modo de autenticación: local
 
 1. Disponibilidad básica y cabeceras de seguridad
-  [OK ] GET /health responde — esperado: 200 | obtenido: 200 ({"status":"ok","instancia":"app1","db":"ok","uptime_s":44})
+  [OK ] GET /health responde — esperado: 200 | obtenido: 200 ({"status":"ok","instancia":"app1","db":"ok","uptime_s":6})
   [OK ] Cabecera content-security-policy — esperado: presente | obtenido: default-src 'self'; script-src 'self'; style-src 'self'; img
   [OK ] Cabecera x-frame-options — esperado: presente | obtenido: DENY
   [OK ] Cabecera x-content-type-options — esperado: presente | obtenido: nosniff
@@ -29,8 +30,8 @@ Pruebas sobre http://localhost:8080 — 2026-10-02T16:37:52.973Z
   [OK ] auditor GET /api/auditoria — esperado: 200 | obtenido: 200
   [OK ] admin GET /api/auditoria — esperado: 200 | obtenido: 200
   [OK ] analista POST /api/usuarios — esperado: 403 | obtenido: 403
-  [OK ] Analista solo ve sus propios incidentes — esperado: true | obtenido: true (2 visibles)
-  [OK ] Auditor ve todos los incidentes (solo lectura) — esperado: >= 2 | obtenido: 4
+  [OK ] Analista solo ve sus propios incidentes — esperado: true | obtenido: true (3 visibles)
+  [OK ] Auditor ve todos los incidentes (solo lectura) — esperado: >= 2 | obtenido: 6
   [OK ] Analista modifica incidente ajeno (IDOR) — esperado: 403 | obtenido: 403
   [OK ] Analista elimina incidente — esperado: 403 | obtenido: 403
 
@@ -50,11 +51,11 @@ Pruebas sobre http://localhost:8080 — 2026-10-02T16:37:52.973Z
   [OK ] Evento "incidente_creado" registrado — esperado: presente | obtenido: presente
 
 7. Balanceo de carga entre réplicas
-  [OK ] Peticiones distribuidas en >= 2 instancias — esperado: >= 2 | obtenido: 2 ({"app1":20,"app2":20})
+  [OK ] Peticiones distribuidas en >= 2 instancias — esperado: >= 2 | obtenido: 2 ({"app2":20,"app1":20})
 
 8. Failover: caída de una réplica (app1) con tráfico continuo
   -> app1 detenida (docker stop) a los 3 s
-  [OK ] Servicio sigue respondiendo con 1 réplica caída — esperado: >= 99% | obtenido: 100.00% (143 ok / 0 fallos) ({"app1":14,"app2":129})
+  [OK ] Servicio sigue respondiendo con 1 réplica caída — esperado: >= 99% | obtenido: 100.00% (143 ok / 0 fallos) ({"app2":129,"app1":14})
   [OK ] Réplica recuperada vuelve al pool — esperado: 2 instancias | obtenido: app2, app1
 
 9. Segmentación de red

@@ -57,3 +57,12 @@ td.vacio { color: var(--suave); text-align: center; padding: 20px; }
 .mensaje.error { color: var(--peligro); }
 .pie { text-align: center; color: var(--suave); font-size: .8rem; padding: 14px; }
 code { background: #e8edf4; padding: 1px 6px; border-radius: 4px; }
+
+/* Verificación en dos pasos */
+.aviso { background: #e8f1fb; color: var(--primario); border-radius: 6px; padding: 8px 10px; font-size: .82rem; margin: 0 0 16px; }
+.login h2 { font-size: 1.1rem; margin: 0 0 6px; }
+.pasos { padding-left: 20px; font-size: .88rem; color: var(--suave); margin: 0 0 12px; }
+.pasos li { margin-bottom: 4px; }
+.qr { display: block; margin: 8px auto; width: 200px; height: 200px; image-rendering: pixelated; border: 1px solid var(--borde); border-radius: 6px; }
+.clave { text-align: center; font-size: .8rem; color: var(--suave); word-break: break-all; }
+.login .btn-bloque { width: 100%; margin-top: 8px; }

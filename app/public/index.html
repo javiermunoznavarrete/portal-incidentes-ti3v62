@@ -23,12 +23,41 @@
     <section id="vista-login" class="tarjeta login">
       <h1>Iniciar sesión</h1>
       <p class="sub">Acceso restringido a personal autorizado. Toda actividad queda registrada.</p>
+      <p id="aviso-mfa" class="aviso oculto">&#128274; Protegido con verificación en dos pasos (Firebase Authentication + TOTP)</p>
       <form id="form-login" autocomplete="on">
         <label>Correo<input type="email" name="email" required autocomplete="username"></label>
         <label>Contraseña<input type="password" name="password" required autocomplete="current-password"></label>
         <button class="btn" type="submit">Ingresar</button>
-        <p id="login-error" class="error" role="alert"></p>
       </form>
+
+      <div id="paso-codigo" class="oculto">
+        <h2>Verificación en dos pasos</h2>
+        <p class="sub">Ingrese el código de 6 dígitos que muestra su aplicación autenticadora.</p>
+        <form id="form-codigo">
+          <label>Código<input name="codigo" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>
+          <button class="btn" type="submit">Verificar</button>
+          <button class="btn btn-sec btn-bloque" type="button" data-cancelar>Cancelar</button>
+        </form>
+      </div>
+
+      <div id="paso-enrolar" class="oculto">
+        <h2>Active la verificación en dos pasos</h2>
+        <ol class="pasos">
+          <li>Instale Google Authenticator, Microsoft Authenticator u otra app TOTP.</li>
+          <li>Escanee el código QR (o ingrese la clave manualmente).</li>
+          <li>Escriba el código de 6 dígitos que aparece en la app.</li>
+        </ol>
+        <img id="qr-totp" class="qr" alt="Código QR para la aplicación autenticadora">
+        <p class="clave">Clave: <code id="clave-totp"></code></p>
+        <form id="form-enrolar">
+          <label>Código<input name="codigo" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>
+          <button class="btn" type="submit">Activar</button>
+          <button class="btn btn-sec btn-bloque" type="button" data-cancelar>Cancelar</button>
+        </form>
+      </div>
+
+      <p id="login-error" class="error" role="alert"></p>
+      <p id="login-ok" class="mensaje" role="status"></p>
     </section>
 
     <section id="vista-app" class="oculto">
@@ -77,6 +106,7 @@
   </main>
 
   <footer class="pie">Atendido por <code id="instancia">—</code> · TI3V62 Gestión de Seguridad de la Información</footer>
+  <script src="/vendor/qrcode.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
