@@ -1,0 +1,10 @@
+{
+  "name": "informe-ti3v62",
+  "private": true,
+  "scripts": {
+    "build": "node generar-informe.js"
+  },
+  "dependencies": {
+    "docx": "^9.8.1"
+  }
+}
