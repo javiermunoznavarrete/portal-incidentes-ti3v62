@@ -12,7 +12,7 @@ const {
 const URL_APP = 'https://portal-app-production-1269.up.railway.app';
 const REPO = 'github.com/javiermunoznavarrete/portal-incidentes-ti3v62 (privado)';
 const EV = (f) => JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'pruebas', f), 'utf8'));
-const evLocal = EV('evidencia-local.json');
+const evLocal = EV('evidencia-local-firebase.json');
 const evRailway = EV('evidencia-railway.json');
 const evRedeploy = EV('evidencia-redeploy-railway.json');
 
@@ -89,13 +89,13 @@ function nivel(v) {
 // [id, activo, amenaza/vulnerabilidad, P, I, controles, ISO 27001:2022, NIST, CSA CCM, Pr, Ir]
 const RIESGOS = [
   ['R01', 'Cuentas de usuario', 'Fuerza bruta o credenciales débiles permiten acceso no autorizado', 4, 5,
-    'Política de contraseñas (≥10, Aa1); hash scrypt con sal; bloqueo tras 5 intentos (15 min); rate limit 10/min por IP; mensaje de error genérico',
-    'A.5.17, A.8.5', 'PR.AA-01/03\nIA-5, AC-7', 'IAM', 1, 5],
+    'Autenticación de doble factor obligatoria (Firebase + TOTP); política de contraseñas ≥10 Aa1 aplicada por Firebase; protección anti fuerza bruta de Firebase; rate limit por IP; mensajes genéricos',
+    'A.5.17, A.8.5', 'PR.AA-01/03\nIA-2(1), IA-2(2), IA-5, AC-7', 'IAM', 1, 5],
   ['R02', 'Datos de incidentes', 'Escalada de privilegios o acceso a registros ajenos (IDOR)', 3, 5,
     'RBAC validado en servidor para cada endpoint; verificación de propiedad del registro; revalidación de rol y estado en BD por petición',
     'A.5.15, A.8.2, A.8.3', 'PR.AA-05\nAC-3, AC-6', 'IAM', 1, 5],
   ['R03', 'Sesiones', 'Robo o falsificación de cookie de sesión', 3, 4,
-    'Token firmado HMAC-SHA256; cookie HttpOnly + Secure + SameSite=Strict; expiración 30 min; HTTPS forzado (HSTS)',
+    'ID token de Firebase verificado (firma, emisor, audiencia, revocación); sesión HMAC-SHA256 en cookie HttpOnly + Secure + SameSite=Strict; 30 min; HSTS',
     'A.8.5, A.8.24', 'PR.AA-03, PR.DS-02\nAC-12, SC-8, SC-23', 'CEK, IAM', 1, 4],
   ['R04', 'Aplicación web', 'Inyección SQL o XSS', 3, 5,
     'Consultas 100% parametrizadas; render con textContent; Content-Security-Policy sin inline; validación y largo máximo de entradas',
@@ -107,7 +107,7 @@ const RIESGOS = [
     'BD solo en red privada (postgres.railway.internal); sin dominio ni proxy TCP público; credenciales por referencia de variable',
     'A.8.20, A.8.22', 'PR.IR-01\nSC-7', 'IVS', 1, 5],
   ['R07', 'Secretos', 'Filtración de secretos (repositorio, logs)', 3, 5,
-    'Secretos solo en variables de Railway; .gitignore; repositorio privado; contraseñas nunca se registran en logs',
+    'Secretos y clave de cuenta de servicio Firebase solo en variables de Railway (fuera del repositorio); .gitignore; repo privado; contraseñas fuera de logs',
     'A.5.17, A.8.12, A.8.24', 'PR.DS-01\nIA-5(7), SC-28', 'CEK, DSP', 1, 5],
   ['R08', 'Servicio web', 'Caída de instancia o indisponibilidad durante despliegues', 3, 4,
     '2 réplicas balanceadas; healthcheck /health; reinicio ON_FAILURE (10); despliegue con overlap 20 s y draining 10 s',
@@ -119,10 +119,10 @@ const RIESGOS = [
     'Log JSON por petición; tabla de auditoría (sin endpoint de borrado); eventos de login, denegaciones y cambios; logs de Railway',
     'A.8.15, A.8.16', 'DE.CM-01/03\nAU-2, AU-3, AU-9', 'LOG', 2, 3],
   ['R11', 'Plataforma cloud', 'Compromiso de cuenta Railway/GitHub del equipo', 2, 5,
-    '2FA obligatorio; roles de proyecto mínimos (Viewer/Editor); Owner reservado; repositorio privado',
-    'A.5.16, A.5.18, A.5.23', 'PR.AA-01/05\nAC-2, IA-2(1)', 'IAM', 1, 5],
+    'Roles de proyecto mínimos (Viewer/Editor); Owner reservado; repositorio privado. Pendiente: activar 2FA en cuentas Railway/GitHub/Google del equipo',
+    'A.5.16, A.5.18, A.5.23', 'PR.AA-01/05\nAC-2, IA-2(1)', 'IAM', 2, 5],
   ['R12', 'Cadena de suministro', 'Dependencias o imagen base vulnerables', 3, 4,
-    'Una sola dependencia (pg); npm ci con lockfile; imagen node:22-alpine; npm audit = 0 vulnerabilidades; contenedor sin root',
+    '2 dependencias directas (pg, firebase-admin) con lockfile; override uuid≥11.1.1; npm audit = 0 vulnerabilidades; imagen alpine sin root',
     'A.8.8, A.8.9', 'ID.RA-01, GV.SC\nRA-5, SR-3', 'TVM', 2, 3],
   ['R13', 'Servicio web', 'Denegación de servicio (DoS)', 3, 4,
     'Proxy de borde de Railway; límite de cuerpo 10 KB; timeouts de petición; rate limit en login; réplicas',
@@ -142,7 +142,7 @@ const portada = [
     ['Asignatura', 'Gestión de Seguridad de la Información (TI3V62)'],
     ['Carrera / Sede', 'Ingeniería Informática — Puente Alto'],
     ['Docente', '[Nombre del docente]'],
-    ['Integrantes', '[Integrante 1] — Arquitecto/a de solución\n[Integrante 2] — Desarrollador/a\n[Integrante 3] — Especialista en redes/seguridad\n[Integrante 4] — Documentación y pruebas'],
+    ['Integrantes', 'Javier Muñoz — Arquitecto de solución y documentación/pruebas\nKevin Bustos — Desarrollador\nDiego Negrete — Especialista en redes/seguridad'],
     ['Aplicación desplegada', URL_APP],
     ['Repositorio', REPO],
     ['Fecha', '05 de octubre de 2026'],
@@ -172,6 +172,7 @@ const s1 = [
     ['RNF-03', 'Base de datos no expuesta a Internet', 'Seguridad', 'Red privada de Railway'],
     ['RNF-04', 'Registro de accesos y eventos relevantes', 'Trazabilidad', 'Logs JSON + tabla auditoría'],
     ['RNF-05', 'Cifrado en tránsito', 'Seguridad', 'HTTPS/TLS en el borde + HSTS'],
+    ['RNF-06', 'Autenticación de doble factor', 'Seguridad', 'Firebase Authentication + TOTP (app autenticadora)'],
   ], [1000, 4060, 1500, 2800]),
   H2('1.4 Selección de la tecnología cloud (criterio 4.1.2)'),
   P('El enunciado propone AWS, Azure o GCP en capa gratuita; el docente autorizó utilizar **Railway**, una plataforma como servicio (PaaS). La comparación siguiente justifica la elección y deja explícitas sus limitaciones.'),
@@ -187,26 +188,27 @@ const s1 = [
   P('**Decisión:** Railway reduce la superficie de configuración y el tiempo de implementación, lo que permite concentrar el esfuerzo del equipo en los controles de la capa que le corresponde (aplicación, identidades, datos), según el modelo de responsabilidad compartida. La menor granularidad de IAM se compensa con un RBAC robusto en la aplicación y con roles de proyecto de mínimo privilegio.'),
   H2('1.5 Formación de roles del equipo'),
   tabla(['Rol del proyecto', 'Integrante', 'Responsabilidades principales'], [
-    ['Arquitecto/a de solución', '[Integrante 1]', 'Diseño de capas, selección de Railway, integración app–BD–red, modelo de responsabilidad compartida'],
-    ['Desarrollador/a', '[Integrante 2]', 'Aplicación Node.js, RBAC, sesiones, validación de entradas, Dockerfile'],
-    ['Especialista en redes/seguridad', '[Integrante 3]', 'IAM de plataforma, red privada, hardening, secretos, matriz de riesgos'],
-    ['Documentación y pruebas', '[Integrante 4]', 'Batería de pruebas automatizadas, evidencias, informe final'],
+    ['Arquitecto/a de solución', 'Javier Muñoz', 'Diseño de capas, selección de Railway y Firebase, integración app–BD–red, modelo de responsabilidad compartida'],
+    ['Desarrollador/a', 'Kevin Bustos', 'Aplicación Node.js, RBAC, sesiones, integración del 2FA, validación de entradas, Dockerfile'],
+    ['Especialista en redes/seguridad', 'Diego Negrete', 'IAM de plataforma, red privada, hardening, secretos, matriz de riesgos'],
+    ['Documentación y pruebas', 'Javier Muñoz', 'Batería de pruebas automatizadas, evidencias, informe final'],
   ], [2600, 1900, 4860]),
 ];
 
 // ---------------------------------------------------------------- 2. arquitectura
 const s2 = [
   H1('2. Arquitectura'),
-  P('La solución se organiza en tres capas de seguridad dentro de un proyecto de Railway, más un plano de gestión. Solo la capa de borde es alcanzable desde Internet; la capa de datos únicamente es accesible desde la aplicación a través de la red privada del proyecto.'),
+  P('La solución se organiza en tres capas de seguridad dentro de un proyecto de Railway, más un plano de gestión. Solo la capa de borde es alcanzable desde Internet; la capa de datos únicamente es accesible desde la aplicación a través de la red privada del proyecto. La identidad de los usuarios se verifica con **Firebase Authentication (Identity Platform)**, que exige contraseña y un código TOTP de una app autenticadora antes de emitir el ID token que el portal acepta.'),
   imagen('arquitectura.png', 620, 360),
   Leyenda('Figura 1. Arquitectura de la solución y capas de seguridad.'),
   H2('2.1 Componentes'),
   tabla(['Capa', 'Componente', 'Descripción y controles'], [
     ['1. Borde (pública)', 'Edge proxy de Railway', `Termina TLS para ${URL_APP.replace('https://', '')}, balancea entre réplicas y absorbe tráfico volumétrico. Único punto de entrada.`],
-    ['2. Aplicación', 'Servicio portal-app (2 réplicas)', 'Node.js 22 sin framework (1 dependencia: pg). Imagen Docker alpine ejecutada como usuario no root. RBAC, sesiones HMAC, CSRF, CSP/HSTS, bloqueo de cuentas, logging.'],
+    ['2. Aplicación', 'Servicio portal-app (2 réplicas)', 'Node.js 22 sin framework (dependencias: pg y firebase-admin). Imagen Docker alpine ejecutada como usuario no root. Verificación del 2FA, RBAC, sesiones HMAC, CSRF, CSP/HSTS, logging.'],
     ['3. Datos (privada)', 'PostgreSQL 18 (postgres-ssl)', 'Volumen persistente de 50 GB. Accesible solo en postgres.railway.internal:5432. Sin dominio público ni proxy TCP.'],
     ['Gestión', 'IAM, variables, observabilidad', 'Roles de proyecto Railway, variables cifradas (secretos), logs de despliegue y HTTP, métricas, tabla de auditoría.'],
-    ['Origen', 'GitHub (repositorio privado)', 'Cada push a main construye la imagen desde el Dockerfile y despliega automáticamente.'],
+    ['Identidad', 'Firebase Authentication (Identity Platform)', 'Proyecto portal-incidentes-ti3v62. Correo/contraseña + MFA TOTP, política de contraseñas, protección contra enumeración de correos y dominios autorizados.'],
+    ['Origen', 'GitHub (repositorio privado)', 'Cada push construye la imagen desde el Dockerfile y despliega automáticamente.'],
   ], [1700, 2300, 5360]),
   H2('2.2 Configuración aplicada en Railway'),
   tabla(['Parámetro', 'Valor', 'Propósito'], [
@@ -218,6 +220,7 @@ const s2 = [
     ['Overlap / draining', '20 s / 10 s', 'Despliegues sin corte de servicio'],
     ['Root directory / builder', '/app — Dockerfile', 'Build reproducible'],
     ['DATABASE_URL', '${{Postgres.DATABASE_URL}} (referencia)', 'Credencial nunca escrita en código'],
+    ['FIREBASE_*', 'ID de proyecto, configuración web y cuenta de servicio (base64)', 'Verificar ID tokens y administrar usuarios en Firebase'],
     ['Postgres: networking', 'privateNetworkEndpoint=postgres; tcpProxies=[]; dominios=[]', 'Segmentación: BD no expuesta'],
   ], [2400, 3860, 3100]),
   H2('2.3 Modelo de responsabilidad compartida'),
@@ -230,6 +233,7 @@ const s2 = [
     ['Imagen del contenedor y dependencias', '', '●'],
     ['Código, RBAC, sesiones, validación', '', '●'],
     ['Identidades y accesos a la plataforma', '● (provee 2FA y roles)', '● (asigna y revisa)'],
+    ['Autenticación de usuarios finales (2FA)', '— (Firebase/Google la provee)', '● (configura TOTP y exige el factor)'],
     ['Secretos', '● (cifra y almacena)', '● (genera, rota, restringe)'],
     ['Datos y respaldos', '● (provee volúmenes y backups)', '● (programa, prueba restauración)'],
     ['Logging y monitoreo', '● (recolecta)', '● (define eventos y revisa)'],
@@ -274,7 +278,7 @@ const tablaRiesgos = new Table({
 const promInh = (RIESGOS.reduce((a, r) => a + r[3] * r[4], 0) / RIESGOS.length).toFixed(1);
 const promRes = (RIESGOS.reduce((a, r) => a + r[9] * r[10], 0) / RIESGOS.length).toFixed(1);
 s3.push(tablaRiesgos, Leyenda('Tabla 3. Matriz de riesgos con controles y riesgo residual.'));
-s3.push(P(`**Resultado:** el riesgo inherente promedio baja de **${promInh}** a **${promRes}** después de aplicar los controles. Ningún riesgo residual queda en nivel alto o crítico. Los riesgos residuales medios (R09, R10, R12, R13) se tratan como mejoras en la sección 7.`));
+s3.push(P(`**Resultado:** el riesgo inherente promedio baja de **${promInh}** a **${promRes}** después de aplicar los controles. El principal riesgo de acceso no autorizado a la aplicación (R01) se mitiga con autenticación de doble factor. Queda un riesgo residual alto, R11 (compromiso de cuentas de la plataforma), que baja a medio cuando el equipo active 2FA en sus cuentas de Railway, GitHub y Google. Los riesgos residuales medios (R09, R10, R12, R13) se tratan como mejoras en la sección 7.`));
 
 // ---------------------------------------------------------------- 4. IAM
 const P_RBAC = [
@@ -294,10 +298,9 @@ const s4 = [
   H2('4.1 Nivel plataforma (Railway y GitHub)'),
   P('Railway no tiene “cuenta raíz” como AWS. Su equivalente es el rol **Owner** del proyecto, que se reserva para la administración y la facturación y no se usa en la operación diaria. Los roles de proyecto disponibles son Owner (administración completa), Editor (despliega y configura, sin acciones destructivas) y Viewer (solo lectura, sin acceso a variables).'),
   tabla(['Integrante / identidad', 'Rol en Railway', 'Acceso GitHub', 'Justificación'], [
-    ['Arquitecto/a (titular de la cuenta)', 'Owner + 2FA', 'Admin del repositorio', 'Administración y facturación; uso excepcional'],
-    ['Desarrollador/a', 'Editor', 'Write', 'Despliega cambios; no puede borrar servicios'],
-    ['Especialista redes/seguridad', 'Editor', 'Write', 'Configura red, variables y réplicas'],
-    ['Documentación y pruebas', 'Viewer', 'Read', 'Revisa logs y estado; no ve secretos'],
+    ['Javier Muñoz (arquitecto, titular de la cuenta)', 'Owner (activar 2FA)', 'Admin del repositorio', 'Administración y facturación; uso excepcional'],
+    ['Kevin Bustos (desarrollador)', 'Editor', 'Write', 'Despliega cambios; no puede borrar servicios'],
+    ['Diego Negrete (redes/seguridad)', 'Editor', 'Write', 'Configura red, variables y réplicas'],
     ['Docente (revisión)', 'Viewer', 'Read (opcional)', 'Evaluación sin capacidad de cambio'],
     ['Integración GitHub → Railway', 'App autorizada solo al repositorio', '—', 'Despliegue automático sin credenciales personales'],
   ], [2500, 1900, 1700, 3260]),
@@ -308,14 +311,30 @@ const s4 = [
   Leyenda('Tabla 4. Matriz RBAC de la aplicación.'),
   H2('4.3 Políticas de autenticación y sesión'),
   tabla(['Política', 'Configuración', 'Referencia'], [
-    ['Almacenamiento de contraseñas', 'scrypt (N=16384) con sal aleatoria de 16 bytes; comparación en tiempo constante', 'A.8.24 / IA-5(1)'],
-    ['Complejidad', 'Mínimo 10 caracteres, mayúsculas, minúsculas y números; máximo 128', 'A.5.17 / IA-5'],
-    ['Bloqueo de cuenta', '5 intentos fallidos → bloqueo 15 minutos (HTTP 423)', 'AC-7'],
+    ['Autenticación multifactor', 'Obligatoria para todos los roles: contraseña + código TOTP (Firebase Identity Platform). El servidor rechaza tokens sin el claim sign_in_second_factor = "totp"', 'A.8.5 / IA-2(1), IA-2(2)'],
+    ['Almacenamiento de contraseñas', 'En Firebase (hash scrypt administrado por Google); el portal no guarda contraseñas', 'A.8.24 / IA-5(1)'],
+    ['Complejidad', 'Mínimo 10 caracteres, mayúsculas, minúsculas y números; máximo 128 (política de Firebase en modo ENFORCE)', 'A.5.17 / IA-5'],
+    ['Bloqueo por fuerza bruta', 'Firebase bloquea temporalmente tras intentos repetidos (auth/too-many-requests); enumeración de correos deshabilitada', 'AC-7'],
     ['Limitación de tasa', '10 intentos de login por minuto por IP (HTTP 429)', 'AC-7, SC-5'],
     ['Sesión', 'Token HMAC-SHA256, expira en 30 min; cookie HttpOnly, Secure, SameSite=Strict', 'AC-12, SC-23'],
     ['Segregación de funciones', 'Un admin no puede modificar su propia cuenta ni rol', 'A.5.3 / AC-5'],
-    ['Cuentas iniciales', 'Contraseñas aleatorias generadas fuera del código y entregadas por canal separado', 'A.5.17'],
+    ['Revocación', 'Desactivar un usuario lo deshabilita en Firebase y revoca sus tokens; "Restablecer 2FA" elimina el autenticador enrolado', 'AC-2(3)'],
+    ['Cuentas iniciales', 'Contraseñas aleatorias y secretos TOTP generados fuera del código, entregados por canal separado', 'A.5.17'],
   ], [2500, 4660, 2200]),
+  H2('4.4 Autenticación de doble factor con Firebase'),
+  P('El segundo factor se implementó con **Firebase Authentication con Identity Platform** usando **TOTP** (contraseña de un solo uso basada en tiempo, RFC 6238). Se eligió TOTP en lugar de SMS porque no tiene costo, no depende de la red telefónica (no es vulnerable a SIM swapping) y funciona con cualquier app autenticadora (Google Authenticator, Microsoft Authenticator, Authy).'),
+  tabla(['Paso', 'Dónde ocurre', 'Control'], [
+    ['1. Usuario ingresa correo y contraseña', 'Navegador → Firebase (SDK web oficial)', 'Política de contraseñas y anti fuerza bruta de Firebase'],
+    ['2. Firebase responde "se requiere segundo factor"', 'Firebase', 'Sin el código no se entrega ningún token'],
+    ['3. Usuario ingresa el código de 6 dígitos de su app', 'Navegador → Firebase', 'Código válido 30 s; un código incorrecto se rechaza (INVALID_CODE)'],
+    ['4. Firebase emite un ID token firmado', 'Firebase → navegador → portal', 'Token con claim sign_in_second_factor = "totp"'],
+    ['5. El servidor verifica el token y abre la sesión', 'portal-app (firebase-admin)', 'Firma, emisor, audiencia, expiración, revocación, correo verificado y segundo factor'],
+    ['6. Se aplica el rol del portal (RBAC)', 'portal-app + PostgreSQL', 'Mínimo privilegio; evento login_exitoso con factor=password+totp'],
+  ], [3300, 2860, 3200]),
+  P('**Primer ingreso:** si una cuenta aún no tiene segundo factor, el servidor responde mfa_requerido y la interfaz guía el enrolamiento: muestra un código QR y la clave, el usuario escanea con su app y confirma con un código. Luego debe iniciar sesión nuevamente usando el código. Los tokens de Firebase solo se mantienen en memoria del navegador; la sesión del portal es una cookie HttpOnly.'),
+  imagen('10-paso-codigo-totp.png', 520, 305), Leyenda('Figura 2. Segundo paso del inicio de sesión: código de la app autenticadora.'),
+  imagen('11-enrolamiento-qr.png', 520, 305), Leyenda('Figura 3. Enrolamiento del segundo factor en el primer ingreso (cuenta de demostración, luego desactivada).'),
+  P('**Configuración en Firebase** (script firebase/configurar.js, idempotente): proveedor correo/contraseña, MFA TOTP habilitado, política de contraseñas en modo ENFORCE, protección contra enumeración de correos, dominios autorizados (dominio de Railway y localhost) y creación de las cuentas con correo verificado.'),
 ];
 
 // ---------------------------------------------------------------- 5. red y hardening
@@ -331,25 +350,25 @@ const s5 = [
   H2('5.2 Medidas de endurecimiento aplicadas'),
   tabla(['Ámbito', 'Medida', 'Referencia'], [
     ['Transporte', 'HTTPS obligatorio en el borde; Strict-Transport-Security 1 año', 'A.8.24 / SC-8'],
-    ['Cabeceras HTTP', 'CSP restrictiva (sin scripts inline), X-Frame-Options DENY, nosniff, Referrer-Policy no-referrer, Permissions-Policy, COOP; sin X-Powered-By', 'A.8.9 / CM-6'],
+    ['Cabeceras HTTP', 'CSP restrictiva (sin scripts inline; solo se permite el SDK oficial de Firebase en gstatic y las APIs de autenticación de Google), X-Frame-Options DENY, nosniff, Referrer-Policy no-referrer, Permissions-Policy, COOP; sin X-Powered-By', 'A.8.9 / CM-6'],
     ['Contenedor', 'node:22-alpine (imagen mínima), usuario no root, solo dependencias de producción (npm ci --omit=dev), HEALTHCHECK', 'A.8.9 / CM-7'],
     ['Contenedor (local)', 'read_only, cap_drop ALL, no-new-privileges', 'CIS Docker Benchmark'],
     ['Aplicación', 'Consultas parametrizadas, límite de cuerpo 10 KB, timeouts, validación y truncado de entradas, errores sin detalles internos', 'A.8.28 / SI-10, SI-11'],
     ['Anti-CSRF', 'SameSite=Strict + cabecera X-Requested-With obligatoria', 'SC-23'],
     ['Secretos', 'Variables de Railway (cifradas); .gitignore; repositorio privado; nada sensible en logs', 'A.8.12 / SC-28'],
-    ['Dependencias', '1 dependencia directa (pg), lockfile, npm audit: 0 vulnerabilidades', 'A.8.8 / RA-5'],
+    ['Dependencias', '2 dependencias directas (pg, firebase-admin), lockfile, override de uuid por GHSA-w5hq-g745-h8pq, npm audit: 0 vulnerabilidades. Librería QR servida localmente (MIT)', 'A.8.8 / RA-5'],
     ['Disponibilidad del arranque', 'Migración con pg_advisory_lock para que varias réplicas arranquen a la vez sin conflictos', 'A.8.14'],
   ], [1900, 5360, 2100]),
   H2('5.3 Registro de eventos (logging)'),
-  P('Cada petición genera una línea JSON en la salida estándar (timestamp, instancia, método, ruta, estado, latencia, IP, usuario), que Railway centraliza en sus logs de despliegue. Los eventos de seguridad se guardan además en la tabla **auditoria**, que no tiene endpoint de modificación ni de borrado: login_exitoso, login_fallido, cuenta_bloqueada, login_rate_limit, acceso_denegado, incidente_creado/actualizado/eliminado, usuario_creado/actualizado y logout.'),
-  imagen('08-auditor-auditoria.png', 600, 351),
-  Leyenda('Figura 2. Bitácora de auditoría vista por el rol auditor: intentos fallidos, bloqueo de cuenta y la réplica que atendió cada evento.'),
+  P('Cada petición genera una línea JSON en la salida estándar (timestamp, instancia, método, ruta, estado, latencia, IP, usuario), que Railway centraliza en sus logs de despliegue. Los eventos de seguridad se guardan además en la tabla **auditoria**, que no tiene endpoint de modificación ni de borrado: login_exitoso (con el factor usado), login_fallido, login_sin_mfa, acceso_denegado, mfa_restablecido, incidente_creado/actualizado/eliminado, usuario_creado/actualizado y logout.'),
+  imagen('13-auditoria-2fa.png', 600, 351),
+  Leyenda('Figura 4. Bitácora de auditoría: ingresos con factor=password+totp, intentos sin segundo factor (login_sin_mfa) y la réplica que atendió cada evento.'),
 ];
 
 // ---------------------------------------------------------------- 6. pruebas
 const GRUPO_NIST = {
   disponibilidad: 'CP-10, SC-5', hardening: 'CM-6, SC-8', autenticacion: 'IA-2, IA-5, AC-7, AC-12',
-  rbac: 'AC-3, AC-6', csrf: 'SC-23', inyeccion: 'SI-10', logging: 'AU-2, AU-3', red: 'SC-7',
+  mfa: 'IA-2(1), IA-2(2)', rbac: 'AC-3, AC-6', csrf: 'SC-23', inyeccion: 'SI-10', logging: 'AU-2, AU-3', red: 'SC-7',
 };
 function resumenGrupos(ev) {
   const g = {};
@@ -366,9 +385,9 @@ const fechaR = new Date(evRailway.fecha).toLocaleString('es-CL', { timeZone: 'Am
 
 const s6 = [
   H1('6. Pruebas de disponibilidad y validación de seguridad'),
-  P('El procedimiento de validación (criterio 4.1.5) se automatizó en el script pruebas/pruebas.js, que ejecuta peticiones reales contra la aplicación y compara el resultado esperado con el obtenido. Se ejecutó en dos ambientes: **local**, donde se pueden provocar fallas de infraestructura con Docker, y **producción en Railway**. Cada grupo de pruebas está asociado al control NIST SP 800-53 que valida.'),
+  P('El procedimiento de validación (criterio 4.1.5) se automatizó en el script pruebas/pruebas.js, que ejecuta peticiones reales contra la aplicación y compara el resultado esperado con el obtenido. Se ejecutó en dos ambientes, ambos con autenticación de doble factor real contra Firebase: **local**, donde se pueden provocar fallas de infraestructura con Docker, y **producción en Railway**. Para autenticarse, el script calcula los códigos TOTP con un generador validado con los vectores oficiales del RFC 6238. Cada grupo de pruebas está asociado al control NIST SP 800-53 que valida.'),
   H2('6.1 Resumen de resultados'),
-  tabla(['Grupo de pruebas', 'Control NIST', 'Local (Docker)', 'Railway (producción)'],
+  tabla(['Grupo de pruebas', 'Control NIST', 'Local (Docker + Firebase)', 'Railway (producción)'],
     Object.keys(GRUPO_NIST).map((k) => [k, GRUPO_NIST[k],
       gl[k] ? { texto: `${gl[k].ok}/${gl[k].n}`, align: AlignmentType.CENTER, fill: gl[k].ok === gl[k].n ? 'E2EFDA' : 'FBE5E3' } : { texto: '—', align: AlignmentType.CENTER },
       gr[k] ? { texto: `${gr[k].ok}/${gr[k].n}`, align: AlignmentType.CENTER, fill: gr[k].ok === gr[k].n ? 'E2EFDA' : 'FBE5E3' } : { texto: 'n/a (solo local)', align: AlignmentType.CENTER }])
@@ -389,12 +408,12 @@ const s6 = [
     evRailway.resultados.filter((r) => r.grupo !== 'disponibilidad').map((r) => [r.nombre, String(r.esperado), String(r.obtenido).slice(0, 60), { texto: r.ok ? '✔' : '✘', align: AlignmentType.CENTER, fill: r.ok ? 'E2EFDA' : 'FBE5E3' }]),
     [4400, 1900, 2460, 600], { size: 16 }),
   H2('6.4 Evidencia visual'),
-  imagen('01-login.png', 560, 328), Leyenda('Figura 3. Pantalla de inicio de sesión (producción).'),
-  imagen('02-login-fallido.png', 560, 328), Leyenda('Figura 4. Intento con credenciales inválidas: mensaje genérico que no revela si el usuario existe.'),
-  imagen('03-admin-incidentes.png', 560, 328), Leyenda('Figura 5. Rol admin: ve todos los incidentes, cambia su estado y puede eliminarlos.'),
-  imagen('04-admin-usuarios.png', 560, 328), Leyenda('Figura 6. Rol admin: gestión de usuarios; una cuenta aparece bloqueada tras 5 intentos fallidos.'),
-  imagen('06-analista-incidentes.png', 560, 328), Leyenda('Figura 7. Rol analista: solo ve la pestaña Incidentes y únicamente sus propios registros.'),
-  imagen('07-auditor-incidentes.png', 560, 328), Leyenda('Figura 8. Rol auditor: lectura de todos los incidentes, sin formularios de creación ni acciones.'),
+  imagen('09-login-2fa.png', 560, 328), Leyenda('Figura 5. Inicio de sesión en producción, protegido con verificación en dos pasos.'),
+  imagen('12-enrolamiento-ok.png', 560, 328), Leyenda('Figura 6. Segundo factor activado: el usuario debe volver a ingresar usando su código.'),
+  imagen('03-admin-incidentes.png', 560, 328), Leyenda('Figura 7. Rol admin (tras contraseña + TOTP): ve todos los incidentes, cambia su estado y puede eliminarlos.'),
+  imagen('04-admin-usuarios.png', 560, 328), Leyenda('Figura 8. Rol admin: gestión de usuarios con "Restablecer 2FA"; las cuentas de prueba quedaron desactivadas.'),
+  imagen('06-analista-incidentes.png', 560, 328), Leyenda('Figura 9. Rol analista: solo ve la pestaña Incidentes y únicamente sus propios registros.'),
+  imagen('07-auditor-incidentes.png', 560, 328), Leyenda('Figura 10. Rol auditor: lectura de todos los incidentes, sin formularios de creación ni acciones.'),
 ];
 
 // ---------------------------------------------------------------- 7. conclusiones
@@ -405,22 +424,25 @@ const s7 = [
     ['Aplicación web funcional desplegada en la nube', { texto: 'Cumple', fill: 'E2EFDA' }, URL_APP],
     ['≥ 2 roles con permisos diferenciados', { texto: 'Cumple', fill: 'E2EFDA' }, '3 roles; 14/14 pruebas RBAC'],
     ['IAM propio, sin cuenta raíz para operación diaria', { texto: 'Cumple*', fill: 'FFF2CC' }, 'Roles Owner/Editor/Viewer (sección 4.1). *Requiere invitar a los integrantes'],
+    ['Autenticación de doble factor (adicional)', { texto: 'Cumple', fill: 'E2EFDA' }, `Firebase + TOTP; ${(gr.mfa || { ok: 0 }).ok}/${(gr.mfa || { n: 0 }).n} pruebas MFA en producción`],
     ['Segmentación o aislamiento de componentes', { texto: 'Cumple', fill: 'E2EFDA' }, 'BD solo en red privada; 3/3 pruebas de red'],
     ['≥ 1 medida de disponibilidad', { texto: 'Cumple', fill: 'E2EFDA' }, `2 réplicas + healthcheck + reinicio; ${evRedeploy.disponibilidad_pct} % en redeploy`],
-    ['Logging de accesos y eventos', { texto: 'Cumple', fill: 'E2EFDA' }, 'Logs JSON + tabla de auditoría; 5/5 pruebas'],
+    ['Logging de accesos y eventos', { texto: 'Cumple', fill: 'E2EFDA' }, `Logs JSON + tabla de auditoría; ${gr.logging.ok}/${gr.logging.n} pruebas`],
     ['Informe con matriz de riesgos, controles y pruebas', { texto: 'Cumple', fill: 'E2EFDA' }, 'Secciones 3, 5 y 6'],
   ], [3600, 1300, 4460]),
   P('Respecto de la **estrategia de gobierno TI**, la solución contribuye a los objetivos de COBIT 2019 APO13 (Gestionar la seguridad) y DSS05 (Gestionar servicios de seguridad), porque centraliza la gestión de incidentes con trazabilidad, y a DSS04 (Gestionar la continuidad), porque mantiene el servicio disponible ante fallas. Las decisiones de riesgo quedan documentadas y son revisables, lo que habilita su incorporación a un SGSI basado en ISO 27001 (cláusulas 6.1.2 y 8.2).'),
   H2('7.2 Aprendizajes del equipo'),
   B('**La seguridad no se delega por completo al proveedor.** Railway resuelve TLS, balanceo y aislamiento físico, pero el RBAC, la gestión de sesiones, la validación de entradas y la decisión de no exponer la base de datos dependen del equipo.'),
-  B('**Un control solo existe si se puede probar.** Automatizar 43 pruebas permitió detectar dos supuestos incorrectos durante la validación (un puerto ocupado por otro proceso del equipo y el tiempo de reincorporación del balanceador) y corregirlos con evidencia.'),
+  B('**Un control solo existe si se puede probar.** Automatizar las pruebas (49 en local y 44 en producción) permitió detectar dos supuestos incorrectos durante la validación (un puerto ocupado por otro proceso del equipo y el tiempo de reincorporación del balanceador) y corregirlos con evidencia.'),
   B('**La disponibilidad se diseña desde la aplicación.** Para que dos réplicas funcionen se necesitaron sesiones sin estado (firmadas), migraciones con bloqueo y un healthcheck que verifique la base de datos.'),
   B('**El mínimo privilegio se aplica en todos los niveles:** usuarios de la app, integrantes en la plataforma y el proceso del contenedor (no root).'),
+  B('**El segundo factor debe exigirlo el servidor, no la interfaz.** Firebase entrega el código y el token, pero el control efectivo es que el backend rechace cualquier token sin el claim de segundo factor. Una prueba automatizada verifica exactamente ese caso.'),
   H2('7.3 Mejoras futuras'),
   tabla(['Mejora', 'Riesgo que reduce', 'Prioridad'], [
     ['Activar respaldos programados diarios del volumen de Postgres y probar una restauración', 'R09', 'Alta'],
     ['Base de datos en alta disponibilidad (plantilla postgres-ha: réplicas con failover automático)', 'R08, R09', 'Media'],
-    ['MFA (TOTP) para los roles admin y auditor en la aplicación', 'R01, R02', 'Media'],
+    ['Activar 2FA en las cuentas Railway, GitHub y Google de todos los integrantes', 'R11', 'Alta'],
+    ['Reemplazar la cuenta de servicio firebase-adminsdk por una con rol mínimo (Firebase Authentication Admin) y rotar su clave', 'R07, R11', 'Media'],
     ['Enviar logs a un SIEM y crear alertas ante ráfagas de login_fallido o acceso_denegado', 'R10', 'Media'],
     ['WAF y dominio propio (p. ej. Cloudflare) con reglas OWASP', 'R04, R13', 'Media'],
     ['Pipeline CI que ejecute pruebas, npm audit y escaneo de imagen antes de cada despliegue', 'R12', 'Media'],
@@ -437,6 +459,9 @@ const anexo = [
     ['app/src/rbac.js', 'Matriz de roles y permisos'],
     ['app/src/seguridad.js', 'scrypt, política de contraseñas, tokens HMAC'],
     ['app/src/db.js', 'Esquema, migración con advisory lock, usuarios iniciales'],
+    ['app/src/firebase.js', 'Verificación de ID tokens y administración de usuarios en Firebase'],
+    ['firebase/configurar.js', 'Configuración automatizada de Firebase (TOTP, políticas, dominios, cuentas)'],
+    ['pruebas/totp.js', 'Generador TOTP (RFC 6238) validado con vectores oficiales'],
     ['app/public/', 'Interfaz web (HTML, JS sin inline, CSS)'],
     ['app/Dockerfile', 'Imagen endurecida (alpine, no root)'],
     ['app/test/', 'Pruebas unitarias (node --test)'],
@@ -447,13 +472,14 @@ const anexo = [
   ], [3200, 6160]),
   espacio(),
   P('**Reproducir localmente:** cd infra/local && docker compose up -d --build; luego node pruebas/pruebas.js http://localhost:8080 evidencia-local --local.'),
-  P('**Probar producción:** ADMIN_PASS=… ANALISTA_PASS=… AUDITOR_PASS=… node pruebas/pruebas.js ' + URL_APP + ' evidencia-railway.'),
-  P('**Credenciales de demostración:** se entregan al docente por un canal separado y no se incluyen en este documento ni en el repositorio (ISO 27001 A.5.17).'),
+  P('**Probar producción:** ADMIN_PASS=… ANALISTA_PASS=… AUDITOR_PASS=… ADMIN_TOTP=… ANALISTA_TOTP=… AUDITOR_TOTP=… node pruebas/pruebas.js ' + URL_APP + ' evidencia-railway (los secretos TOTP permiten al script calcular los códigos).'),
+  P('**Configurar Firebase:** node firebase/configurar.js firebase-sa.json firebase-web.json CREDENCIALES-NO-SUBIR.txt <dominios>.'),
+  P('**Credenciales de demostración:** las contraseñas y los códigos QR de TOTP se entregan al docente por un canal separado y no se incluyen en este documento ni en el repositorio (ISO 27001 A.5.17).'),
 ];
 
 // ---------------------------------------------------------------- documento
 const doc = new Document({
-  creator: 'Equipo Proyecto Integrador TI3V62',
+  creator: 'Javier Muñoz, Kevin Bustos, Diego Negrete',
   title: 'Informe Final — Proyecto Integrador TI3V62',
   description: 'Implementación de una solución de software en la nube, segura y disponible',
   features: { updateFields: true },
