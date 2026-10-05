@@ -15,6 +15,7 @@ const EV = (f) => JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'pruebas
 const evLocal = EV('evidencia-local-firebase.json');
 const evRailway = EV('evidencia-railway.json');
 const evRedeploy = EV('evidencia-redeploy-railway.json');
+const evRate = EV('evidencia-rate-limit-railway.json');
 
 const ANCHO = 9360; // Carta con márgenes de 1" (DXA)
 const AZUL = '1F4E79';
@@ -78,6 +79,17 @@ function imagen(archivo, anchoPx, altoPx) {
 }
 
 const espacio = () => new Paragraph({ children: [], spacing: { after: 80 } });
+const codigo = (lineas) => new Table({
+  width: { size: ANCHO, type: WidthType.DXA },
+  columnWidths: [ANCHO],
+  rows: [new TableRow({ children: [new TableCell({
+    width: { size: ANCHO, type: WidthType.DXA },
+    borders: BORDES,
+    shading: { type: ShadingType.CLEAR, color: 'auto', fill: 'F4F6F9' },
+    margins: { top: 80, bottom: 80, left: 120, right: 120 },
+    children: lineas.map((l) => new Paragraph({ spacing: { after: 0 }, children: [new TextRun({ text: l, font: 'Consolas', size: 16 })] })),
+  })] })],
+});
 
 // ---------------------------------------------------------------- datos de riesgos
 function nivel(v) {
@@ -113,13 +125,13 @@ const RIESGOS = [
     '2 réplicas balanceadas; healthcheck /health; reinicio ON_FAILURE (10); despliegue con overlap 20 s y draining 10 s',
     'A.8.14, A.5.30', 'PR.IR-03/04\nCP-10, SC-5', 'BCR', 1, 4],
   ['R09', 'Datos', 'Pérdida o corrupción de datos', 2, 5,
-    'Volumen persistente; eliminación solo por admin y auditada; respaldos programados del volumen (acción pendiente: activar)',
+    'Volumen persistente; eliminación solo por admin y auditada; respaldos programados del volumen diario (retención 6 días) y semanal (27 días) + respaldo manual del 05-10-2026 (Figura 7)',
     'A.8.13', 'PR.DS-11\nCP-9', 'BCR', 2, 3],
   ['R10', 'Trazabilidad', 'Incidentes no detectados por falta de registros', 3, 3,
     'Log JSON por petición; tabla de auditoría (sin endpoint de borrado); eventos de login, denegaciones y cambios; logs de Railway',
     'A.8.15, A.8.16', 'DE.CM-01/03\nAU-2, AU-3, AU-9', 'LOG', 2, 3],
   ['R11', 'Plataforma cloud', 'Compromiso de cuenta Railway/GitHub del equipo', 2, 5,
-    'Roles de proyecto mínimos (Viewer/Editor); Owner reservado; solo el titular puede escribir en el repositorio (público para evaluación). Pendiente: activar 2FA en cuentas Railway/GitHub/Google del equipo',
+    'Hoy solo el titular tiene acceso al proyecto Railway y escribe en el repositorio (Figura 2); permisos mínimos planificados para el equipo (Can Edit / Can View). Pendiente: invitaciones y 2FA en cuentas Railway/GitHub/Google',
     'A.5.16, A.5.18, A.5.23', 'PR.AA-01/05\nAC-2, IA-2(1)', 'IAM', 2, 5],
   ['R12', 'Cadena de suministro', 'Dependencias o imagen base vulnerables', 3, 4,
     '2 dependencias directas (pg, firebase-admin) con lockfile; override uuid≥11.1.1; npm audit = 0 vulnerabilidades; imagen alpine sin root',
@@ -136,8 +148,7 @@ const portada = [
   new Paragraph({ spacing: { before: 900 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'EVALUACIÓN N°4 — PROYECTO INTEGRADOR', bold: true, size: 26, color: AZUL })] }),
   new Paragraph({ spacing: { before: 200 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Informe Final', bold: true, size: 52, color: AZUL })] }),
   new Paragraph({ spacing: { before: 120 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Implementación de una solución de software en la nube, segura y disponible', size: 30 })] }),
-  new Paragraph({ spacing: { before: 120 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portal de Gestión de Incidentes de Seguridad desplegado en Railway', italics: true, size: 24, color: '5B6676' })] }),
-  new Paragraph({ spacing: { before: 900 }, children: [] }),
+  new Paragraph({ spacing: { before: 120, after: 900 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Portal de Gestión de Incidentes de Seguridad desplegado en Railway', italics: true, size: 24, color: '5B6676' })] }),
   tabla(['Campo', 'Detalle'], [
     ['Asignatura', 'Gestión de Seguridad de la Información (TI3V62)'],
     ['Carrera / Sede', 'Ingeniería Informática — Puente Alto'],
@@ -181,7 +192,7 @@ const s1 = [
     ['Tiempo de puesta en marcha', 'Minutos (repositorio GitHub → despliegue)', 'Horas/días (VPC, subredes, ALB, ASG, IAM)'],
     ['Redundancia', 'Réplicas por región con 1 parámetro', 'Auto Scaling Group + balanceador multi-AZ'],
     ['Segmentación de red', 'Red privada por proyecto (*.railway.internal)', 'VPC, subredes, security groups, NACL (más granular)'],
-    ['IAM', 'Roles de workspace y de proyecto (Owner/Editor/Viewer), tokens por entorno', 'Políticas JSON muy granulares por recurso y acción'],
+    ['IAM', 'Titular del workspace y permisos de proyecto (Can Edit / Can View), tokens por entorno', 'Políticas JSON muy granulares por recurso y acción'],
     ['Costo', 'Plan Hobby / créditos de prueba', 'Free tier 12 meses, riesgo de cargos (NAT, ALB)'],
     ['Superficie de administración', 'Menor (menos componentes que configurar mal)', 'Mayor (más riesgo de mala configuración)'],
   ], [2300, 3530, 3530]),
@@ -216,9 +227,9 @@ const s2 = [
     ['Región', 'asia-southeast1 (app y BD en la misma región)', 'Latencia mínima app ↔ BD'],
     ['Réplicas portal-app', '2', 'Redundancia y balanceo'],
     ['Healthcheck', '/health (timeout 60 s), verifica conexión a BD', 'Solo réplicas sanas reciben tráfico'],
-    ['Política de reinicio', 'ON_FAILURE, máx. 10 reintentos', 'Auto-recuperación'],
+    ['Política de reinicio', 'On Failure, máx. 10 reintentos (valor por defecto de Railway, docs.railway.com/deployments/restart-policy)', 'Auto-recuperación'],
     ['Overlap / draining', '20 s / 10 s', 'Despliegues sin corte de servicio'],
-    ['Root directory / builder', '/app — Dockerfile', 'Build reproducible'],
+    ['Root directory / build', '/app — Dockerfile detectado automáticamente (log de build en Anexo B)', 'Build reproducible'],
     ['DATABASE_URL', '${{Postgres.DATABASE_URL}} (referencia)', 'Credencial nunca escrita en código'],
     ['FIREBASE_*', 'ID de proyecto, configuración web y cuenta de servicio (base64)', 'Verificar ID tokens y administrar usuarios en Firebase'],
     ['Postgres: networking', 'privateNetworkEndpoint=postgres; tcpProxies=[]; dominios=[]', 'Segmentación: BD no expuesta'],
@@ -250,7 +261,7 @@ const s3 = [
     [{ texto: 'Medio', fill: 'FFF2CC' }, '5 – 9', 'Mitigar o aceptar con monitoreo'],
     [{ texto: 'Bajo', fill: 'E2EFDA' }, '1 – 4', 'Aceptar'],
   ], [2000, 2000, 5360]),
-  espacio(),
+  Leyenda('Tabla 2. Escala de nivel de riesgo (probabilidad × impacto).'),
 ];
 const tablaRiesgos = new Table({
   width: { size: ANCHO, type: WidthType.DXA },
@@ -278,7 +289,8 @@ const tablaRiesgos = new Table({
 const promInh = (RIESGOS.reduce((a, r) => a + r[3] * r[4], 0) / RIESGOS.length).toFixed(1);
 const promRes = (RIESGOS.reduce((a, r) => a + r[9] * r[10], 0) / RIESGOS.length).toFixed(1);
 s3.push(tablaRiesgos, Leyenda('Tabla 3. Matriz de riesgos con controles y riesgo residual.'));
-s3.push(P(`**Resultado:** el riesgo inherente promedio baja de **${promInh}** a **${promRes}** después de aplicar los controles. El principal riesgo de acceso no autorizado a la aplicación (R01) se mitiga con autenticación de doble factor. Queda un riesgo residual alto, R11 (compromiso de cuentas de la plataforma), que baja a medio cuando el equipo active 2FA en sus cuentas de Railway, GitHub y Google. Los riesgos residuales medios (R09, R10, R12, R13) se tratan como mejoras en la sección 7.`));
+const residual = (min, max) => RIESGOS.filter((r) => r[9] * r[10] >= min && r[9] * r[10] <= max).map((r) => r[0]);
+s3.push(P(`**Resultado:** el riesgo inherente promedio baja de **${promInh}** a **${promRes}** después de aplicar los controles. El principal riesgo de acceso no autorizado a la aplicación (R01) se mitiga con autenticación de doble factor. Riesgo residual por nivel: **alto** ${residual(10, 19).join(', ') || 'ninguno'}; **medio** ${residual(5, 9).join(', ')}; **bajo** ${residual(1, 4).join(', ')}. El riesgo alto (R11, compromiso de cuentas de la plataforma) baja a medio cuando el equipo active 2FA en sus cuentas de Railway, GitHub y Google. Los riesgos medios de valor 5 (impacto alto con probabilidad mínima) se aceptan con monitoreo; los de valor 6 a 8 se tratan como mejoras en la sección 7.`));
 
 // ---------------------------------------------------------------- 4. IAM
 const P_RBAC = [
@@ -296,15 +308,16 @@ const s4 = [
   H1('4. Configuración IAM'),
   P('La gestión de identidades y accesos se implementa en dos niveles: **(1) plataforma**, que controla quién puede administrar la infraestructura en Railway y GitHub, y **(2) aplicación**, que controla qué puede hacer cada usuario final en el portal. En ambos niveles se aplica el principio de mínimo privilegio (ISO 27001 A.5.15, A.8.2; NIST AC-6).'),
   H2('4.1 Nivel plataforma (Railway y GitHub)'),
-  P('Railway no tiene “cuenta raíz” como AWS. Su equivalente es el rol **Owner** del proyecto, que se reserva para la administración y la facturación y no se usa en la operación diaria. Los roles de proyecto disponibles son Owner (administración completa), Editor (despliega y configura, sin acciones destructivas) y Viewer (solo lectura, sin acceso a variables).'),
+  P('Railway no tiene “cuenta raíz” como AWS. Su equivalente es el **titular del workspace**, que tiene acceso total y se reserva para la administración y la facturación. A los demás se les invita al proyecto con uno de los dos permisos que ofrece la interfaz: **Can Edit** (en la documentación, «Editor»: despliega y cambia la configuración, pero no puede borrar servicios ni el proyecto) y **Can View** («Viewer»: solo lectura, no puede desplegar ni ver variables de entorno). Fuente: docs.railway.com/guides/lock-down-production-project.'),
   tabla(['Integrante / identidad', 'Rol en Railway', 'Acceso GitHub', 'Justificación'], [
-    ['Javier Muñoz (arquitecto, titular de la cuenta)', 'Owner (activar 2FA)', 'Admin del repositorio', 'Administración y facturación; uso excepcional'],
-    ['Kevin Bustos (desarrollador)', 'Editor', 'Write', 'Despliega cambios; no puede borrar servicios'],
-    ['Diego Negrete (redes/seguridad)', 'Editor', 'Write', 'Configura red, variables y réplicas'],
-    ['Freddy Asenjo Pérez (docente, revisión)', 'Viewer', 'Read (opcional)', 'Evaluación sin capacidad de cambio'],
-    ['Integración GitHub → Railway', 'App autorizada solo al repositorio', '—', 'Despliegue automático sin credenciales personales'],
-  ], [2500, 1900, 1700, 3260]),
-  P('**Procedimiento:** en Railway → Project Settings → Members, invitar a cada integrante con su rol; en Account → Security, activar 2FA. Para automatizaciones se usan **tokens de proyecto** (alcance de un entorno) en lugar de tokens de cuenta. Las cuentas se revisan al cierre del proyecto y se retiran los accesos (ISO 27001 A.5.18).'),
+    ['Javier Muñoz (arquitecto)', 'Titular del workspace', 'Dueño del repositorio', { texto: 'Aplicado', fill: 'E2EFDA' }],
+    ['Kevin Bustos (desarrollador)', 'Can Edit', 'Write', { texto: 'Pendiente: invitación', fill: 'FFF2CC' }],
+    ['Diego Negrete (redes/seguridad)', 'Can Edit', 'Write', { texto: 'Pendiente: invitación', fill: 'FFF2CC' }],
+    ['Freddy Asenjo Pérez (docente)', 'Can View', 'Lectura (repositorio público)', { texto: 'Repo: aplicado · Railway: opcional', fill: 'F6F8FB' }],
+    ['Integración GitHub → Railway', 'App autorizada solo al repositorio', '—', { texto: 'Aplicado', fill: 'E2EFDA' }],
+  ], [2800, 1900, 2200, 2460]),
+  imagen('16-railway-members.png', 560, 245), Leyenda('Figura 2. Members del proyecto en Railway al 05-10-2026: solo el titular tiene acceso; las invitaciones del equipo están pendientes.'),
+  P('**Procedimiento pendiente:** en Railway → Project Settings → Members → Invite, invitar a cada integrante con su permiso; en Account → Security, activar 2FA. Para automatizaciones se usan **tokens de proyecto** (alcance de un entorno) en lugar de tokens de cuenta. Las cuentas se revisan al cierre del proyecto y se retiran los accesos (ISO 27001 A.5.18).'),
   H2('4.2 Nivel aplicación: RBAC'),
   P('Los permisos están definidos en una matriz única (src/rbac.js). Cada endpoint verifica el permiso **en el servidor**: ocultar botones en la interfaz es solo una ayuda visual y no constituye un control. En cada petición se revalida en la base de datos que la cuenta siga activa y conserve el mismo rol, de modo que desactivar a un usuario revoca su sesión de inmediato.'),
   tabla(['Permiso', 'admin', 'analista', 'auditor'], P_RBAC.map((r) => [r[0], ...r.slice(1).map((v) => ({ texto: v, align: AlignmentType.CENTER, fill: v === '✔' ? 'E2EFDA' : v === '✘' ? 'FBE5E3' : 'F6F8FB' }))]), [3960, 1800, 1800, 1800]),
@@ -315,7 +328,7 @@ const s4 = [
     ['Almacenamiento de contraseñas', 'En Firebase (hash scrypt administrado por Google); el portal no guarda contraseñas', 'A.8.24 / IA-5(1)'],
     ['Complejidad', 'Mínimo 10 caracteres, mayúsculas, minúsculas y números; máximo 128 (política de Firebase en modo ENFORCE)', 'A.5.17 / IA-5'],
     ['Bloqueo por fuerza bruta', 'Firebase bloquea temporalmente tras intentos repetidos (auth/too-many-requests); enumeración de correos deshabilitada', 'AC-7'],
-    ['Limitación de tasa', '10 intentos de login por minuto por IP (HTTP 429)', 'AC-7, SC-5'],
+    ['Limitación de tasa', `10 intentos de login por minuto por IP en cada réplica (contador en memoria) → HTTP 429. Verificado en producción: primer 429 en el intento ${evRate.primero429} de 30 (sección 6.4)`, 'AC-7, SC-5'],
     ['Sesión', 'Token HMAC-SHA256, expira en 30 min; cookie HttpOnly, Secure, SameSite=Strict', 'AC-12, SC-23'],
     ['Segregación de funciones', 'Un admin no puede modificar su propia cuenta ni rol', 'A.5.3 / AC-5'],
     ['Revocación', 'Desactivar un usuario lo deshabilita en Firebase y revoca sus tokens; "Restablecer 2FA" elimina el autenticador enrolado', 'AC-2(3)'],
@@ -332,8 +345,8 @@ const s4 = [
     ['6. Se aplica el rol del portal (RBAC)', 'portal-app + PostgreSQL', 'Mínimo privilegio; evento login_exitoso con factor=password+totp'],
   ], [3300, 2860, 3200]),
   P('**Primer ingreso:** si una cuenta aún no tiene segundo factor, el servidor responde mfa_requerido y la interfaz guía el enrolamiento: muestra un código QR y la clave, el usuario escanea con su app y confirma con un código. Luego debe iniciar sesión nuevamente usando el código. Los tokens de Firebase solo se mantienen en memoria del navegador; la sesión del portal es una cookie HttpOnly.'),
-  imagen('10-paso-codigo-totp.png', 520, 305), Leyenda('Figura 2. Segundo paso del inicio de sesión: código de la app autenticadora.'),
-  imagen('11-enrolamiento-qr.png', 520, 305), Leyenda('Figura 3. Enrolamiento del segundo factor en el primer ingreso (cuenta de demostración, luego desactivada).'),
+  imagen('10-paso-codigo-totp.png', 520, 305), Leyenda('Figura 3. Segundo paso del inicio de sesión: código de la app autenticadora.'),
+  imagen('11-enrolamiento-qr.png', 520, 305), Leyenda('Figura 4. Enrolamiento del segundo factor en el primer ingreso. Cuenta de demostración demo.2fa.11177@portal.cl, deshabilitada en Firebase: la clave mostrada no permite acceder.'),
   P('**Configuración en Firebase** (script firebase/configurar.js, idempotente): proveedor correo/contraseña, MFA TOTP habilitado, política de contraseñas en modo ENFORCE, protección contra enumeración de correos, dominios autorizados (dominio de Railway y localhost) y creación de las cuentas con correo verificado.'),
 ];
 
@@ -343,9 +356,10 @@ const s5 = [
   H2('5.1 Segmentación'),
   tabla(['Zona', 'Expuesta a Internet', 'Puede comunicarse con', 'Evidencia'], [
     ['Borde (edge proxy)', 'Sí, solo HTTPS 443', 'portal-app', 'Dominio *.up.railway.app'],
-    ['Aplicación (portal-app)', 'Solo a través del borde', 'Postgres por red privada', 'describe-service: 1 dominio, 0 proxies TCP'],
-    ['Datos (Postgres)', 'No', 'Solo servicios del proyecto', 'describe-service: 0 dominios, 0 proxies TCP'],
+    ['Aplicación (portal-app)', 'Solo a través del borde', 'Postgres por red privada', 'Anexo B: 1 dominio, 0 proxies TCP'],
+    ['Datos (Postgres)', 'No', 'Solo servicios del proyecto', 'Anexo B: 0 dominios, 0 proxies TCP; Figura 5'],
   ], [2100, 2100, 2300, 2860]),
+  imagen('15-railway-red-postgres.png', 560, 245), Leyenda('Figura 5. Networking de Postgres en Railway: sin acceso público (solo se ofrece “Add Public Access”) y único endpoint privado postgres.railway.internal.'),
   P('El entorno local de pruebas (infra/local/docker-compose.yml) reproduce la misma segmentación con dos redes Docker. La red **privada** está marcada como internal: true, por lo que no tiene salida a Internet. La base de datos solo está conectada a esa red y el balanceador solo a la red pública. Las pruebas automatizadas verifican que el balanceador no alcanza la BD, que la BD no sale a Internet y que no publica puertos al host.'),
   H2('5.2 Medidas de endurecimiento aplicadas'),
   tabla(['Ámbito', 'Medida', 'Referencia'], [
@@ -362,7 +376,7 @@ const s5 = [
   H2('5.3 Registro de eventos (logging)'),
   P('Cada petición genera una línea JSON en la salida estándar (timestamp, instancia, método, ruta, estado, latencia, IP, usuario), que Railway centraliza en sus logs de despliegue. Los eventos de seguridad se guardan además en la tabla **auditoria**, que no tiene endpoint de modificación ni de borrado: login_exitoso (con el factor usado), login_fallido, login_sin_mfa, acceso_denegado, mfa_restablecido, incidente_creado/actualizado/eliminado, usuario_creado/actualizado y logout.'),
   imagen('13-auditoria-2fa.png', 600, 351),
-  Leyenda('Figura 4. Bitácora de auditoría: ingresos con factor=password+totp, intentos sin segundo factor (login_sin_mfa) y la réplica que atendió cada evento.'),
+  Leyenda('Figura 6. Bitácora de auditoría: ingresos con factor=password+totp, intentos sin segundo factor (login_sin_mfa) y la réplica que atendió cada evento. Columna IP difuminada por privacidad.'),
 ];
 
 // ---------------------------------------------------------------- 6. pruebas
@@ -401,19 +415,25 @@ const s6 = [
     ['D3. Caída de una réplica (local)', 'Tráfico continuo durante 20 s; a los 3 s se detiene app1 (docker stop)', 'Disponibilidad ≥ 99 %', `${failover.obtenido}; reparto ${failover.detalle}`],
     ['D4. Recuperación (local)', 'Se reinicia app1 y se verifica que vuelva al pool', 'Ambas réplicas atienden', evLocal.resultados.find((r) => r.nombre.startsWith('Réplica recuperada')).obtenido],
     ['D5. Healthcheck', 'GET /health valida la conexión a la base de datos', 'HTTP 200 {"db":"ok"}', 'HTTP 200 en ambos ambientes'],
+    ['D6. Respaldos del volumen (Railway)', 'Programación diaria (6 días) y semanal (27 días) + respaldo manual', 'Respaldo disponible para restaurar', 'Respaldo 2026-10-05 01:10 (1,1 GB) y próximo automático programado (Figura 7)'],
   ], [2000, 2860, 1800, 2700]),
   P('**Secuencia observada en D2** (cambio de réplicas durante el redeploy): ' + evRedeploy.eventos.join(' → ') + '.'),
+  imagen('14-railway-backups.png', 560, 245), Leyenda('Figura 7. Respaldos del volumen de Postgres en Railway: programación activa (próximo respaldo automático) y respaldo manual del 05-10-2026.'),
   H2('6.3 Detalle de pruebas de seguridad en producción'),
   tabla(['Prueba', 'Esperado', 'Obtenido', 'OK'],
     evRailway.resultados.filter((r) => r.grupo !== 'disponibilidad').map((r) => [r.nombre, String(r.esperado), String(r.obtenido).slice(0, 60), { texto: r.ok ? '✔' : '✘', align: AlignmentType.CENTER, fill: r.ok ? 'E2EFDA' : 'FBE5E3' }]),
     [4400, 1900, 2460, 600], { size: 16 }),
-  H2('6.4 Evidencia visual'),
-  imagen('09-login-2fa.png', 560, 328), Leyenda('Figura 5. Inicio de sesión en producción, protegido con verificación en dos pasos.'),
-  imagen('12-enrolamiento-ok.png', 560, 328), Leyenda('Figura 6. Segundo factor activado: el usuario debe volver a ingresar usando su código.'),
-  imagen('03-admin-incidentes.png', 560, 328), Leyenda('Figura 7. Rol admin (tras contraseña + TOTP): ve todos los incidentes, cambia su estado y puede eliminarlos.'),
-  imagen('04-admin-usuarios.png', 560, 328), Leyenda('Figura 8. Rol admin: gestión de usuarios con "Restablecer 2FA"; las cuentas de prueba quedaron desactivadas.'),
-  imagen('06-analista-incidentes.png', 560, 328), Leyenda('Figura 9. Rol analista: solo ve la pestaña Incidentes y únicamente sus propios registros.'),
-  imagen('07-auditor-incidentes.png', 560, 328), Leyenda('Figura 10. Rol auditor: lectura de todos los incidentes, sin formularios de creación ni acciones.'),
+  H2('6.4 Prueba de limitación de tasa (rate limit)'),
+  P(`Script pruebas/rate-limit.js: 30 intentos de login seguidos desde la misma IP contra producción (${new Date(evRate.fecha).toLocaleString('es-CL', { timeZone: 'America/Santiago' })}). El contador es por réplica (en memoria), por lo que el bloqueo HTTP 429 aparece cuando la réplica que atiende supera 10 intentos en un minuto. **Resultado:** primer 429 en el intento ${evRate.primero429}; ninguna réplica aceptó más de 10 intentos.`),
+  tabla(['Réplica', 'Intentos aceptados (≤ 10)', 'Intentos bloqueados (HTTP 429)'], Object.entries(evRate.porReplica).map(([r, v]) => [r, String(v.aceptados), String(v.bloqueados)]), [3600, 2880, 2880]),
+  P('**Limitación conocida:** al ser un contador por réplica, un atacante podría hacer hasta ~20 intentos por minuto con 2 réplicas; la protección principal contra fuerza bruta es la de Firebase y el segundo factor. Un contador compartido (por ejemplo, en la base de datos) queda como mejora (sección 7.3).'),
+  H2('6.5 Evidencia visual'),
+  imagen('09-login-2fa.png', 560, 328), Leyenda('Figura 8. Inicio de sesión en producción, protegido con verificación en dos pasos.'),
+  imagen('12-enrolamiento-ok.png', 560, 328), Leyenda('Figura 9. Segundo factor activado: el usuario debe volver a ingresar usando su código.'),
+  imagen('03-admin-incidentes.png', 560, 328), Leyenda('Figura 10. Rol admin (tras contraseña + TOTP): ve todos los incidentes, cambia su estado y puede eliminarlos.'),
+  imagen('04-admin-usuarios.png', 560, 328), Leyenda('Figura 11. Rol admin: gestión de usuarios con "Restablecer 2FA"; las cuentas de prueba quedaron desactivadas.'),
+  imagen('06-analista-incidentes.png', 560, 328), Leyenda('Figura 12. Rol analista: solo ve la pestaña Incidentes y únicamente sus propios registros.'),
+  imagen('07-auditor-incidentes.png', 560, 328), Leyenda('Figura 13. Rol auditor: lectura de todos los incidentes, sin formularios de creación ni acciones.'),
 ];
 
 // ---------------------------------------------------------------- 7. conclusiones
@@ -423,7 +443,7 @@ const s7 = [
   tabla(['Requisito mínimo del enunciado', 'Estado', 'Evidencia'], [
     ['Aplicación web funcional desplegada en la nube', { texto: 'Cumple', fill: 'E2EFDA' }, URL_APP],
     ['≥ 2 roles con permisos diferenciados', { texto: 'Cumple', fill: 'E2EFDA' }, '3 roles; 14/14 pruebas RBAC'],
-    ['IAM propio, sin cuenta raíz para operación diaria', { texto: 'Cumple*', fill: 'FFF2CC' }, 'Roles Owner/Editor/Viewer (sección 4.1). *Requiere invitar a los integrantes'],
+    ['IAM propio, sin cuenta raíz para operación diaria', { texto: 'Parcial', fill: 'FFF2CC' }, 'Aplicación: RBAC + 2FA (cumple). Plataforma: permisos definidos (Can Edit / Can View), pero al 05-10 solo el titular está en Members (Figura 2)'],
     ['Autenticación de doble factor (adicional)', { texto: 'Cumple', fill: 'E2EFDA' }, `Firebase + TOTP; ${(gr.mfa || { ok: 0 }).ok}/${(gr.mfa || { n: 0 }).n} pruebas MFA en producción`],
     ['Segmentación o aislamiento de componentes', { texto: 'Cumple', fill: 'E2EFDA' }, 'BD solo en red privada; 3/3 pruebas de red'],
     ['≥ 1 medida de disponibilidad', { texto: 'Cumple', fill: 'E2EFDA' }, `2 réplicas + healthcheck + reinicio; ${evRedeploy.disponibilidad_pct} % en redeploy`],
@@ -439,9 +459,9 @@ const s7 = [
   B('**El segundo factor debe exigirlo el servidor, no la interfaz.** Firebase entrega el código y el token, pero el control efectivo es que el backend rechace cualquier token sin el claim de segundo factor. Una prueba automatizada verifica exactamente ese caso.'),
   H2('7.3 Mejoras futuras'),
   tabla(['Mejora', 'Riesgo que reduce', 'Prioridad'], [
-    ['Activar respaldos programados diarios del volumen de Postgres y probar una restauración', 'R09', 'Alta'],
+    ['Probar una restauración del respaldo del volumen (los respaldos diario y semanal ya están activos)', 'R09', 'Media'],
     ['Base de datos en alta disponibilidad (plantilla postgres-ha: réplicas con failover automático)', 'R08, R09', 'Media'],
-    ['Activar 2FA en las cuentas Railway, GitHub y Google de todos los integrantes', 'R11', 'Alta'],
+    ['Invitar a Kevin y Diego (Can Edit) y activar 2FA en las cuentas Railway, GitHub y Google de todos', 'R11', 'Alta'],
     ['Reemplazar la cuenta de servicio firebase-adminsdk por una con rol mínimo (Firebase Authentication Admin) y rotar su clave', 'R07, R11', 'Media'],
     ['Enviar logs a un SIEM y crear alertas ante ráfagas de login_fallido o acceso_denegado', 'R10', 'Media'],
     ['WAF y dominio propio (p. ej. Cloudflare) con reglas OWASP', 'R04, R13', 'Media'],
@@ -470,11 +490,46 @@ const anexo = [
     ['pruebas/trafico-redeploy.js', 'Medición de disponibilidad durante un redeploy'],
     ['pruebas/evidencia-*.json|txt', 'Resultados de las ejecuciones usados en este informe'],
   ], [3200, 6160]),
-  espacio(),
   P('**Reproducir localmente:** cd infra/local && docker compose up -d --build; luego node pruebas/pruebas.js http://localhost:8080 evidencia-local --local.'),
   P('**Probar producción:** ADMIN_PASS=… ANALISTA_PASS=… AUDITOR_PASS=… ADMIN_TOTP=… ANALISTA_TOTP=… AUDITOR_TOTP=… node pruebas/pruebas.js ' + URL_APP + ' evidencia-railway (los secretos TOTP permiten al script calcular los códigos).'),
   P('**Configurar Firebase:** node firebase/configurar.js firebase-sa.json firebase-web.json CREDENCIALES-NO-SUBIR.txt <dominios>.'),
   P('**Credenciales de demostración:** las contraseñas y los códigos QR de TOTP se entregan al docente por un canal separado y no se incluyen en este documento ni en el repositorio (ISO 27001 A.5.17).'),
+  H1('Anexo B. Evidencia de configuración en Railway'),
+  P('Salida de la API de Railway (describe-service y get-logs) obtenida el 05-10-2026, recortada a los campos relevantes. Los valores de las variables de entorno no se muestran: la API solo entrega sus nombres.'),
+  H2('B.1 Servicio Postgres (capa de datos)'),
+  codigo([
+    '"service": { "name": "Postgres", "state": "live" }',
+    '"source": { "image": "ghcr.io/railwayapp-templates/postgres-ssl:18" }',
+    '"networking": { "privateNetworkEndpoint": "postgres" }',
+    '"domains": { "serviceDomains": [], "customDomains": [] }',
+    '"tcpProxies": []',
+    '"volumes": [{ "name": "postgres-volume", "mountPath": "/var/lib/postgresql/data", "sizeMB": 50000 }]',
+  ]),
+  P('**Lectura:** sin dominios ni proxies TCP, la base de datos no tiene ninguna ruta de entrada desde Internet; solo es alcanzable como postgres.railway.internal dentro del proyecto.'),
+  H2('B.2 Servicio portal-app (capa de aplicación)'),
+  codigo([
+    '"source": { "repo": "javiermunoznavarrete/portal-incidentes-ti3v62", "branch": "main", "rootDirectory": "/app" }',
+    '"networking": { "serviceDomains": { "portal-app-production-1269.up.railway.app": { "port": 3000 } } }',
+    '"tcpProxies": []',
+    '"build": { "watchPatterns": ["/app/**"] }',
+    '"deploy": { "healthcheckPath": "/health", "healthcheckTimeout": 60,',
+    '            "multiRegionConfig": { "asia-southeast1-eqsg3a": { "numReplicas": 2 } },',
+    '            "drainingSeconds": 10, "overlapSeconds": 20 }',
+    '"variableNames": [ "DATABASE_URL", "FIREBASE_PROJECT_ID", "FIREBASE_SERVICE_ACCOUNT", "FIREBASE_WEB_CONFIG",',
+    '                   "SESSION_SECRET", "SEED_ADMIN_PASSWORD", "SEED_ANALISTA_PASSWORD", "SEED_AUDITOR_PASSWORD", ... ]',
+  ]),
+  P('**Lectura:** Railway despliega la rama **main** del repositorio (código final tras el merge de los PR #1 a #3), con 2 réplicas, healthcheck en /health y un único dominio público. La política de reinicio no aparece porque se usa el valor por defecto de Railway (On Failure, hasta 10 reintentos).'),
+  H2('B.3 Log de build (extracto)'),
+  codigo([
+    '[deps 1/4] FROM docker.io/library/node:22-alpine',
+    '[deps 4/4] RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force',
+    '[stage-1 3/6] COPY --from=deps /app/node_modules ./node_modules',
+    '[stage-1 5/6] COPY src ./src',
+    '[stage-1 6/6] COPY public ./public',
+    'Starting Healthcheck — Path: /health',
+    '[2/2] Healthcheck succeeded!',
+  ]),
+  P('**Lectura:** la imagen se construye con el Dockerfile multietapa del repositorio (etapas deps y stage-1, base node:22-alpine) y solo entra en servicio cuando el healthcheck responde en ambas réplicas.'),
 ];
 
 // ---------------------------------------------------------------- documento
@@ -515,8 +570,7 @@ const doc = new Document({
       },
       children: [
         ...portada,
-        new Paragraph({ children: [new PageBreak()] }),
-        new Paragraph({ children: [new TextRun({ text: 'Índice', bold: true, size: 32, color: AZUL })], spacing: { after: 200 } }),
+        new Paragraph({ pageBreakBefore: true, children: [new TextRun({ text: 'Índice', bold: true, size: 32, color: AZUL })], spacing: { after: 200 } }),
         new TableOfContents('Índice', { hyperlink: true, headingStyleRange: '1-2' }),
         ...s1, ...s2, ...s3, ...s4, ...s5, ...s6, ...s7, ...anexo,
       ],

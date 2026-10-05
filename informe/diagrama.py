@@ -45,7 +45,7 @@ zona(62, 7, 36, 24, ROJO_C, "#b42318", "Capa 3 · Datos (solo red privada)", est
 caja(66, 10, 28, 14, "PostgreSQL 18", "postgres.railway.internal:5432\nsin dominio ni proxy TCP público\nvolumen persistente · backups\nconsultas parametrizadas")
 
 zona(102, 7, 24, 59, GRIS, "#5b6676", "Gestión y monitoreo")
-caja(104, 49, 20, 12, "IAM Railway", "Owner (2FA pendiente)\nMember · Viewer\ntokens de proyecto", fc="white", ec="#5b6676")
+caja(104, 49, 20, 12, "IAM Railway", "Titular del workspace\nCan Edit · Can View\ntokens de proyecto", fc="white", ec="#5b6676")
 caja(104, 31, 20, 12, "Variables / secretos", "SESSION_SECRET\nDATABASE_URL (ref.)\nFIREBASE_SERVICE_ACCOUNT", fc="white", ec="#5b6676")
 caja(104, 12, 20, 13, "Observabilidad", "logs JSON (deploy/HTTP)\nmétricas CPU/RAM\ntabla auditoria", fc="white", ec="#5b6676")
 caja(29.5, 9, 25, 14, "GitHub (público)", "repo portal-incidentes\nCI → build Docker\nauto-deploy rama main", fc="white", ec="#5b6676")
