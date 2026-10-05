@@ -10,7 +10,7 @@ const {
 } = require('docx');
 
 const URL_APP = 'https://portal-app-production-1269.up.railway.app';
-const REPO = 'github.com/javiermunoznavarrete/portal-incidentes-ti3v62 (privado)';
+const REPO = 'github.com/javiermunoznavarrete/portal-incidentes-ti3v62 (público para evaluación)';
 const EV = (f) => JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'pruebas', f), 'utf8'));
 const evLocal = EV('evidencia-local-firebase.json');
 const evRailway = EV('evidencia-railway.json');
@@ -107,7 +107,7 @@ const RIESGOS = [
     'BD solo en red privada (postgres.railway.internal); sin dominio ni proxy TCP público; credenciales por referencia de variable',
     'A.8.20, A.8.22', 'PR.IR-01\nSC-7', 'IVS', 1, 5],
   ['R07', 'Secretos', 'Filtración de secretos (repositorio, logs)', 3, 5,
-    'Secretos y clave de cuenta de servicio Firebase solo en variables de Railway (fuera del repositorio); .gitignore; repo privado; contraseñas fuera de logs',
+    'Secretos y clave de cuenta de servicio Firebase solo en variables de Railway (fuera del repositorio); .gitignore; repositorio sin secretos (historial completo verificado antes de publicarlo); contraseñas fuera de logs',
     'A.5.17, A.8.12, A.8.24', 'PR.DS-01\nIA-5(7), SC-28', 'CEK, DSP', 1, 5],
   ['R08', 'Servicio web', 'Caída de instancia o indisponibilidad durante despliegues', 3, 4,
     '2 réplicas balanceadas; healthcheck /health; reinicio ON_FAILURE (10); despliegue con overlap 20 s y draining 10 s',
@@ -119,7 +119,7 @@ const RIESGOS = [
     'Log JSON por petición; tabla de auditoría (sin endpoint de borrado); eventos de login, denegaciones y cambios; logs de Railway',
     'A.8.15, A.8.16', 'DE.CM-01/03\nAU-2, AU-3, AU-9', 'LOG', 2, 3],
   ['R11', 'Plataforma cloud', 'Compromiso de cuenta Railway/GitHub del equipo', 2, 5,
-    'Roles de proyecto mínimos (Viewer/Editor); Owner reservado; repositorio privado. Pendiente: activar 2FA en cuentas Railway/GitHub/Google del equipo',
+    'Roles de proyecto mínimos (Viewer/Editor); Owner reservado; solo el titular puede escribir en el repositorio (público para evaluación). Pendiente: activar 2FA en cuentas Railway/GitHub/Google del equipo',
     'A.5.16, A.5.18, A.5.23', 'PR.AA-01/05\nAC-2, IA-2(1)', 'IAM', 2, 5],
   ['R12', 'Cadena de suministro', 'Dependencias o imagen base vulnerables', 3, 4,
     '2 dependencias directas (pg, firebase-admin) con lockfile; override uuid≥11.1.1; npm audit = 0 vulnerabilidades; imagen alpine sin root',
@@ -208,7 +208,7 @@ const s2 = [
     ['3. Datos (privada)', 'PostgreSQL 18 (postgres-ssl)', 'Volumen persistente de 50 GB. Accesible solo en postgres.railway.internal:5432. Sin dominio público ni proxy TCP.'],
     ['Gestión', 'IAM, variables, observabilidad', 'Roles de proyecto Railway, variables cifradas (secretos), logs de despliegue y HTTP, métricas, tabla de auditoría.'],
     ['Identidad', 'Firebase Authentication (Identity Platform)', 'Proyecto portal-incidentes-ti3v62. Correo/contraseña + MFA TOTP, política de contraseñas, protección contra enumeración de correos y dominios autorizados.'],
-    ['Origen', 'GitHub (repositorio privado)', 'Cada push construye la imagen desde el Dockerfile y despliega automáticamente.'],
+    ['Origen', 'GitHub (repositorio público para evaluación)', 'Cada push construye la imagen desde el Dockerfile y despliega automáticamente.'],
   ], [1700, 2300, 5360]),
   H2('2.2 Configuración aplicada en Railway'),
   tabla(['Parámetro', 'Valor', 'Propósito'], [
@@ -355,7 +355,7 @@ const s5 = [
     ['Contenedor (local)', 'read_only, cap_drop ALL, no-new-privileges', 'CIS Docker Benchmark'],
     ['Aplicación', 'Consultas parametrizadas, límite de cuerpo 10 KB, timeouts, validación y truncado de entradas, errores sin detalles internos', 'A.8.28 / SI-10, SI-11'],
     ['Anti-CSRF', 'SameSite=Strict + cabecera X-Requested-With obligatoria', 'SC-23'],
-    ['Secretos', 'Variables de Railway (cifradas); .gitignore; repositorio privado; nada sensible en logs', 'A.8.12 / SC-28'],
+    ['Secretos', 'Variables de Railway (cifradas); .gitignore; repositorio público sin secretos (historial verificado); nada sensible en logs', 'A.8.12 / SC-28'],
     ['Dependencias', '2 dependencias directas (pg, firebase-admin), lockfile, override de uuid por GHSA-w5hq-g745-h8pq, npm audit: 0 vulnerabilidades. Librería QR servida localmente (MIT)', 'A.8.8 / RA-5'],
     ['Disponibilidad del arranque', 'Migración con pg_advisory_lock para que varias réplicas arranquen a la vez sin conflictos', 'A.8.14'],
   ], [1900, 5360, 2100]),

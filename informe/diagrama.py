@@ -48,7 +48,7 @@ zona(102, 7, 24, 59, GRIS, "#5b6676", "Gestión y monitoreo")
 caja(104, 49, 20, 12, "IAM Railway", "Owner (2FA pendiente)\nMember · Viewer\ntokens de proyecto", fc="white", ec="#5b6676")
 caja(104, 31, 20, 12, "Variables / secretos", "SESSION_SECRET\nDATABASE_URL (ref.)\nFIREBASE_SERVICE_ACCOUNT", fc="white", ec="#5b6676")
 caja(104, 12, 20, 13, "Observabilidad", "logs JSON (deploy/HTTP)\nmétricas CPU/RAM\ntabla auditoria", fc="white", ec="#5b6676")
-caja(29.5, 9, 25, 14, "GitHub (privado)", "repo portal-incidentes\nCI → build Docker\nauto-deploy rama main", fc="white", ec="#5b6676")
+caja(29.5, 9, 25, 14, "GitHub (público)", "repo portal-incidentes\nCI → build Docker\nauto-deploy rama main", fc="white", ec="#5b6676")
 
 flecha(10, 50, 10, 58, "1. login + TOTP", color="#c2410c", estilo="<|-|>", off=(0, 0))
 flecha(18, 46, 29.5, 50, "2. HTTPS + ID token")
