@@ -141,7 +141,7 @@ const portada = [
   tabla(['Campo', 'Detalle'], [
     ['Asignatura', 'Gestión de Seguridad de la Información (TI3V62)'],
     ['Carrera / Sede', 'Ingeniería Informática — Puente Alto'],
-    ['Docente', '[Nombre del docente]'],
+    ['Docente', 'Freddy Asenjo Pérez'],
     ['Integrantes', 'Javier Muñoz — Arquitecto de solución y documentación/pruebas\nKevin Bustos — Desarrollador\nDiego Negrete — Especialista en redes/seguridad'],
     ['Aplicación desplegada', URL_APP],
     ['Repositorio', REPO],
@@ -301,7 +301,7 @@ const s4 = [
     ['Javier Muñoz (arquitecto, titular de la cuenta)', 'Owner (activar 2FA)', 'Admin del repositorio', 'Administración y facturación; uso excepcional'],
     ['Kevin Bustos (desarrollador)', 'Editor', 'Write', 'Despliega cambios; no puede borrar servicios'],
     ['Diego Negrete (redes/seguridad)', 'Editor', 'Write', 'Configura red, variables y réplicas'],
-    ['Docente (revisión)', 'Viewer', 'Read (opcional)', 'Evaluación sin capacidad de cambio'],
+    ['Freddy Asenjo Pérez (docente, revisión)', 'Viewer', 'Read (opcional)', 'Evaluación sin capacidad de cambio'],
     ['Integración GitHub → Railway', 'App autorizada solo al repositorio', '—', 'Despliegue automático sin credenciales personales'],
   ], [2500, 1900, 1700, 3260]),
   P('**Procedimiento:** en Railway → Project Settings → Members, invitar a cada integrante con su rol; en Account → Security, activar 2FA. Para automatizaciones se usan **tokens de proyecto** (alcance de un entorno) en lugar de tokens de cuenta. Las cuentas se revisan al cierre del proyecto y se retiran los accesos (ISO 27001 A.5.18).'),
