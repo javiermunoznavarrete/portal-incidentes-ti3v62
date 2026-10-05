@@ -1,0 +1,168 @@
+{
+  "base": "https://portal-app-production-1269.up.railway.app",
+  "fecha": "2026-10-05T04:13:40.258Z",
+  "ok": true,
+  "porReplica": {
+    "replica-f0c27978": {
+      "aceptados": 7,
+      "bloqueados": 0
+    },
+    "replica-07d81281": {
+      "aceptados": 10,
+      "bloqueados": 13
+    }
+  },
+  "primero429": 12,
+  "filas": [
+    {
+      "intento": 1,
+      "status": 401,
+      "replica": "replica-f0c27978"
+    },
+    {
+      "intento": 2,
+      "status": 401,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 3,
+      "status": 401,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 4,
+      "status": 401,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 5,
+      "status": 401,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 6,
+      "status": 401,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 7,
+      "status": 401,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 8,
+      "status": 401,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 9,
+      "status": 401,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 10,
+      "status": 401,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 11,
+      "status": 401,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 12,
+      "status": 429,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 13,
+      "status": 429,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 14,
+      "status": 429,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 15,
+      "status": 429,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 16,
+      "status": 401,
+      "replica": "replica-f0c27978"
+    },
+    {
+      "intento": 17,
+      "status": 429,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 18,
+      "status": 401,
+      "replica": "replica-f0c27978"
+    },
+    {
+      "intento": 19,
+      "status": 401,
+      "replica": "replica-f0c27978"
+    },
+    {
+      "intento": 20,
+      "status": 401,
+      "replica": "replica-f0c27978"
+    },
+    {
+      "intento": 21,
+      "status": 429,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 22,
+      "status": 401,
+      "replica": "replica-f0c27978"
+    },
+    {
+      "intento": 23,
+      "status": 429,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 24,
+      "status": 429,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 25,
+      "status": 429,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 26,
+      "status": 401,
+      "replica": "replica-f0c27978"
+    },
+    {
+      "intento": 27,
+      "status": 429,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 28,
+      "status": 429,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 29,
+      "status": 429,
+      "replica": "replica-07d81281"
+    },
+    {
+      "intento": 30,
+      "status": 429,
+      "replica": "replica-07d81281"
+    }
+  ]
+}
